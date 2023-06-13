@@ -1,5 +1,5 @@
 build:
-	tq-bundler run game.fnl main.fnl
+	tq-bundler run src/game.fnl src/main.fnl
 
 watch:
-	tq-bundler run game.fnl main.fnl --tic /Applications/tic80.app/Contents/MacOS/tic80
+	tq-bundler run src/game.fnl src/main.fnl --tic /Applications/tic80.app/Contents/MacOS/tic80

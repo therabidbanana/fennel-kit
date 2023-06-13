@@ -1,8 +1,155 @@
-;; title:  Test
+;;
+;; Bundle file
+;; Code changes will be overwritten
+;;
+
+;; title:  Disastrous Flying Critters
 ;; author: @therabidbanana
-;; desc:   short description
+;; desc:   Help the Rainbow Witch Princess bring peace to the Kingdom
 ;; script: fennel
-(include "kit.utils")
+
+;; The base utils
+;; [TQ-Bundler: kit.lib]
+
+;; Utility functions to make fennel more like CLJ
+
+(fn first [coll] (?. coll 1))
+(fn last [coll] (?. coll (length coll)))
+(fn nil? [x] (= x nil))
+
+(fn ^in [x ...] (doto x (table.insert ...)))
+(fn table? [x] (= (type x) :table))
+(fn arr? [x] (and (table? x) (?. x 1)))
+
+(fn cons [head rest]
+  "Inserts head into rest, if array. Turns into array if not."
+  (let [t? (table? rest)]
+    (if
+     (and (nil? head) t?)    rest
+     (and (nil? rest) head)  [head]
+     t?                      (^in rest 1 head)
+     :else                   [head rest])))
+
+(macro *args [val]
+  `(if (arr? ,val) ,val (cons ,val [...])))
+
+(macro hargs [val]
+  `(if (and (not (arr? ,val)) (table? ,val))
+       ,val
+       (let [list# (cons ,val [...])
+             acc# {}]
+         (for [i# 1 (count list#) 2]
+           (tset acc# (?. list# i#) (?. list# (+ i# 1))))
+         acc#)))
+
+(fn count [coll]
+  (if (arr? coll)
+      (length coll)
+      (table? coll)
+      (accumulate [count 0 i v (pairs coll)] (+ count 1))
+      coll (length coll)
+      nil))
+(fn empty? [coll]
+  (if (nil? coll) true (= 0 (count coll))))
+
+(fn into [arr val ...]
+  "Insert a list of values at the end of an existing list. "
+  (assert (table? arr) "first arg must be collection")
+  (let [coll (*args val)]
+    (each [_ v (ipairs coll)]
+      (^in arr v))
+    arr))
+
+(fn merge [h1 h2 ...]
+  (let [new-hash
+        (accumulate [new {}
+                     k v (pairs h1)]
+          (doto new (tset k v)))]
+    (accumulate [new new-hash k v (pairs (hargs h2))] (doto new (tset k v)))))
+
+(fn update [hash k func]
+  (doto hash (tset k (func (?. hash k)))))
+
+(fn min [a ...]
+  "Find min of a collection (or list of arguments)"
+  (let [coll (*args a)]
+    (accumulate [min (first coll) _ v (ipairs coll)]
+      (if (< v min) v min))))
+
+(fn max [a ...]
+  "Find max of a collection (or list of arguments)"
+  (let [coll (*args a)]
+    (accumulate [max (first coll) _ v (ipairs coll)]
+      (if (< v max) max v))))
+
+(fn sum [a ...]
+  "Find sum of a collection (or list of arguments)"
+  (let [coll (*args a)]
+    (accumulate [acc 0 _ v (ipairs coll)]
+      (if v (+ v acc) acc))))
+
+(fn clamp [val min max]
+  (if (> val max) max
+      (< val min) min
+      val))
+
+(fn between? [val min max]
+  (if (> val max) false
+      (< val min) false
+      true))
+
+(fn mapv [func coll]
+  (assert (table? coll) "last arg must be collection")
+  (icollect [_ v (ipairs coll)] (func v)))
+
+(fn filterv [func coll]
+  (assert (table? coll) "last arg must be collection")
+  (icollect [_ v (ipairs coll)]
+    (if (func v) v)))
+
+(fn mapiv [func coll]
+  (assert (table? coll) "last arg must be collection")
+  (icollect [i v (ipairs coll)] (func i v)))
+
+(fn take [n coll]
+  (assert (table? coll) "last arg must be collection")
+  (accumulate [acc []
+               i v (ipairs coll) :until (<= n (length acc))]
+    (into acc v)))
+
+(fn partition [arr max-cnt]
+  "Takes an single dimension table and splits into pages of size count"
+  (assert (table? arr) "first arg must be collection")
+  (accumulate [acc [[]]
+               index val (ipairs arr)]
+    (if
+     ;; If max <= current last size, new last
+     (<= max-cnt (count (last acc)))
+     (do (into acc [[val]]) acc)
+     ;; Else, append to last
+     (do (into (last acc) val) acc))))
+
+(fn chars [str]
+  (local acc [])
+  (for [i 1 (count str)]
+    (^in acc (string.sub str i i)))
+  acc)
+
+(fn words [str]
+  (local acc [])
+  (each [v (string.gmatch (string.gsub str "\n" " _NEWLINE_ ") "[^ \t]+")]
+    (^in acc v))
+  acc)
+
+
+;; [/TQ-Bundler: kit.lib]
+
+;; [TQ-Bundler: kit.ui.core]
+
+;; [TQ-Bundler: kit.ui.utils]
+
+
+;; ------ Text Helpers -----
 
 (fn fit-lines [{: text : w : chr-size}]
   (let [chr-size (or chr-size 5) ;; too small to handle non-mono
@@ -11,7 +158,7 @@
     (local acc [""])
     (each [i v (ipairs (words text))]
       (if (= :_NEWLINE_ v) (do
-                             (++ l)
+                             (set l (+ 1 l))
                              (tset acc l ""))
           ;; Else
           (do
@@ -20,7 +167,7 @@
             ;; Space + fudge every seventh letter because char-size too small
             (if (>= (+ 1 (// (length (. acc l)) 7) (length (. acc l)) (length v)) max-len)
                 (do
-                  (++ l)
+                  (set l (+ 1 l))
                   (tset acc l v))
                 ;; else
                 (if (= "" (or (?. acc l) ""))
@@ -42,69 +189,11 @@
         line-count (max (// h chr-size) 1)]
     (partition lines line-count)))
 
-(fn inside? [{: x : y &as box} {:x x1 :y y1 &as point}]
-  (and (>= x1 x) (<= x1 (+ x box.w))
-       (>= y1 y) (<= y1 (+ y box.h))))
-
-(fn touches? [{&as ent1} {&as ent2}]
-  (and
-   (< (+ ent1.x 0) (+ ent2.x ent2.w))
-   (> (+ ent1.x ent1.w) (+ ent2.x 0))
-   (< (+ ent1.y 0) (+ ent2.y ent2.h))
-   (> (+ ent1.y ent1.h) (+ ent2.y 0))))
-
-(fn collision-sides [{&as ent1} {&as ent2}]
-  {:top (and (> ent1.y ent2.y)
-             (< (+ ent1.y 0) (+ ent2.y ent2.h))
-             (> (+ ent1.y ent1.h) (+ ent2.y 0)))
-   :bottom (and (< ent1.y ent2.y)
-                (< (+ ent1.y 0) (+ ent2.y ent2.h))
-                (> (+ ent1.y ent1.h) (+ ent2.y 0)))
-   :right (and (< ent1.x ent2.x)
-                (< (+ ent1.x 0) (+ ent2.x ent2.w))
-                (> (+ ent1.x ent1.w) (+ ent2.x 0)))
-   :left (and (> ent1.x ent2.x)
-              (< (+ ent1.x 0) (+ ent2.x ent2.w))
-              (> (+ ent1.x ent1.w) (+ ent2.x 0)))})
-
-;; --------------------
-;; End Base Functions
-;; --------------------
 
 
-;; Testing functionality
-(let [lines (text-box-lines {:text "This is a big page" :w 48 :max-h 12})]
-  (assert (= 2 (count (pages-for-lines {:lines lines :max-h 14}))) "two pages of lines")
-  (pages-for-lines {:lines lines :max-h 14}))
+;; [/TQ-Bundler: kit.ui.utils]
 
-;; --------------------
-;; UI Functions
-;; --------------------
-
-
-
-(global $ui {:components [] :t 0
-             :defaults #(merge {:x 4 :y 80 :padding 5 :char-size 6
-                                :bg-color 15 :border-color 12 :text-color 13}
-                               (or $2 {}))
-             :pop #(table.remove $.components)
-             :clear-all! (fn [self tag]
-                           (tset self :components (icollect [_ v (ipairs self.components)]
-                                                    (if (and tag (not= tag v.tag)) v))))
-             :push #(into $1.components $2)})
-
-(fn box-styles [styles]
-  (let [styles ($ui:defaults styles)
-        pad2   (* styles.padding 2)
-        w (- 236 styles.x)
-        chars (if styles.chars
-                  (+ (* styles.char-size styles.chars) pad2)
-                  w)
-        h (min 68 (- 135 styles.y))]
-    (if (nil? styles.w) (tset styles :w (min w chars)))
-    (if (nil? styles.h) (tset styles :h h))
-    (merge styles {:inner-w (- styles.w pad2)
-                   :inner-h (- styles.h pad2)})))
+;; [TQ-Bundler: kit.ui.draw-utils]
 
 (fn pick-animated-sprite [{ : w : animate : ticks : sprite}]
   (if (nil? animate)
@@ -167,6 +256,33 @@
          (+ x 3) (- y 4)
          (- x 3) (- y 4)
          13)))
+
+
+;; [/TQ-Bundler: kit.ui.draw-utils]
+
+
+(global $ui {:components [] :t 0
+             :defaults #(merge {:x 4 :y 80 :padding 5 :char-size 6
+                                :bg-color 15 :border-color 12 :text-color 13}
+                               (or $2 {}))
+             :pop #(table.remove $.components)
+             :clear-all! (fn [self tag]
+                           (tset self :components (icollect [_ v (ipairs self.components)]
+                                                    (if (and tag (not= tag v.tag)) v))))
+             :push #(into $1.components $2)})
+
+(fn box-styles [styles]
+  (let [styles ($ui:defaults styles)
+        pad2   (* styles.padding 2)
+        w (- 236 styles.x)
+        chars (if styles.chars
+                  (+ (* styles.char-size styles.chars) pad2)
+                  w)
+        h (min 68 (- 135 styles.y))]
+    (if (nil? styles.w) (tset styles :w (min w chars)))
+    (if (nil? styles.h) (tset styles :h h))
+    (merge styles {:inner-w (- styles.w pad2)
+                   :inner-h (- styles.h pad2)})))
 
 (macro defui [ui comp fns]
   (let [comp! (.. comp "!")]
@@ -339,6 +455,45 @@
 (fn ui->react! []
   (let [v (last $ui.components)]
     (if (nil? v) v (v:react))))
+
+
+;; [/TQ-Bundler: kit.ui.core]
+
+
+(fn inside? [{: x : y &as box} {:x x1 :y y1 &as point}]
+  (and (>= x1 x) (<= x1 (+ x box.w))
+       (>= y1 y) (<= y1 (+ y box.h))))
+
+(fn touches? [{&as ent1} {&as ent2}]
+  (and
+   (< (+ ent1.x 0) (+ ent2.x ent2.w))
+   (> (+ ent1.x ent1.w) (+ ent2.x 0))
+   (< (+ ent1.y 0) (+ ent2.y ent2.h))
+   (> (+ ent1.y ent1.h) (+ ent2.y 0))))
+
+(fn collision-sides [{&as ent1} {&as ent2}]
+  {:top (and (> ent1.y ent2.y)
+             (< (+ ent1.y 0) (+ ent2.y ent2.h))
+             (> (+ ent1.y ent1.h) (+ ent2.y 0)))
+   :bottom (and (< ent1.y ent2.y)
+                (< (+ ent1.y 0) (+ ent2.y ent2.h))
+                (> (+ ent1.y ent1.h) (+ ent2.y 0)))
+   :right (and (< ent1.x ent2.x)
+                (< (+ ent1.x 0) (+ ent2.x ent2.w))
+                (> (+ ent1.x ent1.w) (+ ent2.x 0)))
+   :left (and (> ent1.x ent2.x)
+              (< (+ ent1.x 0) (+ ent2.x ent2.w))
+              (> (+ ent1.x ent1.w) (+ ent2.x 0)))})
+
+;; --------------------
+;; End Base Functions
+;; --------------------
+
+
+;; Testing functionality
+(let [lines (text-box-lines {:text "This is a big page" :w 48 :max-h 12})]
+  (assert (= 2 (count (pages-for-lines {:lines lines :max-h 14}))) "two pages of lines")
+  (pages-for-lines {:lines lines :max-h 14}))
 
 ;; ---------------------
 ;; Screen Management

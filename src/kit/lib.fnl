@@ -1,9 +1,4 @@
 ;; Utility functions to make fennel more like CLJ
-(macro -- [val]
-  `(set ,val (- ,val 1)))
-
-(macro ++ [val]
-  `(set ,val (+ ,val 1)))
 
 (fn first [coll] (?. coll 1))
 (fn last [coll] (?. coll (length coll)))
