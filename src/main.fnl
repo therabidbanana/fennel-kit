@@ -6,6 +6,7 @@
 ;; The base utils
 (include "kit.lib")
 (include "kit.ui.core")
+(include "kit.scene.core")
 
 (fn inside? [{: x : y &as box} {:x x1 :y y1 &as point}]
   (and (>= x1 x) (<= x1 (+ x box.w))
@@ -32,66 +33,6 @@
               (< (+ ent1.x 0) (+ ent2.x ent2.w))
               (> (+ ent1.x ent1.w) (+ ent2.x 0)))})
 
-;; --------------------
-;; End Base Functions
-;; --------------------
-
-
-;; Testing functionality
-(let [lines (text-box-lines {:text "This is a big page" :w 48 :max-h 12})]
-  (assert (= 2 (count (pages-for-lines {:lines lines :max-h 14}))) "two pages of lines")
-  (pages-for-lines {:lines lines :max-h 14}))
-
-;; ---------------------
-;; Screen Management
-;; ---------------------
-
-;; Entity
-
-(fn react-entities! [self screen-state]
-  (if (not (ui->active?))
-      (let [screen-state (or screen-state {})
-            entities (or self.entities [])
-            reacted (mapv #(let [up ($:react (merge (or $.state {}) screen-state) self)]
-                             (if (= :die up)
-                                 nil
-                                 (table? up)
-                                 (doto $ (tset :state up))
-                                 $))
-                          entities)]
-        (tset self :entities reacted))))
-
-(fn draw-entities! [self screen-state]
-  (let [screen-state (or screen-state {})]
-   (mapv #($:render (merge (or $.state {}) screen-state) self) self.entities)))
-
-;; Handles swapping screens (title / game)
-(global $screen
-        {:tick! #(let [screen-tick (. (or $.active {:tick #:noop}) :tick)
-                       new-state   (screen-tick $.active $.active.state)]
-                   (tset $.active :state new-state)
-                   (ui->react!)
-                   (ui->display!))
-         :draw! #(let [screen-draw (. (or $.active {:draw #:noop}) :draw)
-                       new-state   (screen-draw $.active $.active.state)]
-                   (ui->display!))
-         :active nil
-         :screens {}
-         ;; Swap + prepare
-         :select! (fn [self name ...] (let [screen (?. self.screens name)]
-                                    (tset self :active screen)
-                                    (screen:prepare ...)))
-         ;; Switch without preparing (allows pause screens)
-         :swap! (fn [self name] (let [screen (?. self.screens name)]
-                                    (tset self :active screen)))
-         :add! (fn [self screen] (let [name screen.screen]
-                                   (tset self.screens name screen)))})
-
-(macro defscreen [screen name fns]
-  `(let [screen-comp# (merge {:screen ,name} ,fns)]
-     (tset (. ,screen :screens) ,name screen-comp#)
-     (: ,screen :add! screen-comp#)
-     screen-comp#))
 
 ;; -------
 
@@ -256,7 +197,7 @@
         :die
         (merge state {: x : y : dx : dy : color : dir :invuln new-invuln : hp}))))
 
-(defscreen $screen :pause
+(defscene $scene :pause
   {:tick
    (fn []
      (cls 14)
@@ -266,8 +207,8 @@
      (poke 0x03FF8 8)
      ($ui:clear-all!)
      ($ui:menu! {:box {:x 50 :w 140}
-                 :options [{:label "Play" :action #($screen:swap! :game)}
-                           {:label "Quit" :action #($screen:select! :title)}]}))})
+                 :options [{:label "Play" :action #($scene:swap! :game)}
+                           {:label "Quit" :action #($scene:select! :title)}]}))})
 
 (var portraits {
                 :princess {:position :left :sprite 201 :w 4 :h 4 :trans 0 :box {:bg-color 0 :border-color 13}}
@@ -280,7 +221,7 @@
        ($ui:textbox! (merge dialog :action #(dialog-chain after-action (table.unpack next-dialogs)))))))
 
 
-(defscreen $screen :intro
+(defscene $scene :intro
   {:tick
    (fn []
      (cls 0)
@@ -295,8 +236,8 @@
      ($ui:clear-all!)
      (dialog-chain #(do
                       ;; NEW GAME logic
-                      (tset $screen.screens.map :completions {})
-                      ($screen:select! :map))
+                      (tset $scene.scenes.map :completions {})
+                      ($scene:select! :map))
                    {:box {:x 34}
                     :character portraits.advisor
                     :text "Princess! Please help us! It's disastrous!"}
@@ -332,7 +273,7 @@
         chosen    (or (?. current color) 0)]
     (// (* (/ chosen all-tiles) 100) 1)))
 
-(defscreen $screen :outro
+(defscene $scene :outro
   {:tick
    (fn []
      (cls 0)
@@ -348,7 +289,7 @@
            total-completion-rate (// (* 100 (/ total-completion 600)) 1)]
        (poke 0x03FF8 0)
        ($ui:clear-all!)
-       (dialog-chain #($screen:select! :title)
+       (dialog-chain #($scene:select! :title)
                      {:box {:x 34}
                       :character portraits.advisor
                       :text "Great work princess! Did all the monsters go away?"}
@@ -359,7 +300,7 @@
                       :text (.. "Completion Rate: " total-completion-rate "%")}))
      )})
 
-(defscreen $screen :map
+(defscene $scene :map
   {:tick
    (fn []
      (cls 0)
@@ -385,8 +326,8 @@
                                             }))
                            ;; else
                            (do
-                             (set $screen.screens.game.level color)
-                             ($screen:select! :game))))
+                             (set $scene.scenes.game.level color)
+                             ($scene:select! :game))))
            sprite-pick  (fn -sprite-pick [color] (if (?. completions color)
                                                      enemy-portal-colors.white
                                                      (?. enemy-portal-colors color)))
@@ -426,11 +367,11 @@
                             }))
            ;; Game end
            (do
-             ($screen:select! :outro completions))))
+             ($scene:select! :outro completions))))
      )})
 
 
-(defscreen $screen :title
+(defscene $scene :title
   {:state {}
    :tick
    (fn [self {&as screen-state}]
@@ -453,14 +394,14 @@
      (poke 0x03FF8 15)
      ($ui:clear-all!)
      ($ui:menu! {:box {:x 50 :w 140}
-                 :options [{:label "Play Game" :action #(do (set $screen.screens.game.two_mode false)
-                                                            (set $screen.screens.intro.two_mode false)
-                                                            (set $screen.screens.map.two_mode false)
-                                                            ($screen:select! :intro))}
-                           {:label "Play Two Player" :action #(do (set $screen.screens.game.two_mode true)
-                                                                  (set $screen.screens.intro.two_mode true)
-                                                                  (set $screen.screens.map.two_mode true)
-                                                                  ($screen:select! :intro))}]}))})
+                 :options [{:label "Play Game" :action #(do (set $scene.scenes.game.two_mode false)
+                                                            (set $scene.scenes.intro.two_mode false)
+                                                            (set $scene.scenes.map.two_mode false)
+                                                            ($scene:select! :intro))}
+                           {:label "Play Two Player" :action #(do (set $scene.scenes.game.two_mode true)
+                                                                  (set $scene.scenes.intro.two_mode true)
+                                                                  (set $scene.scenes.map.two_mode true)
+                                                                  ($scene:select! :intro))}]}))})
 
 (var sprite-colors {:red 256 :orange 264 :blue 320 :green 296 :purple 328 :yellow 288})
 
@@ -626,14 +567,14 @@
                     ;; ($ui:textbox! {:box {:x 34}
                     ;;                :character portraits.princess
                     ;;                :text "Time to head to the next problem!"
-                    ;;                :action #($screen:select! :title)})
-                    ($screen:select! :map level color-bar)
+                    ;;                :action #($scene:select! :title)})
+                    ($scene:select! :map level color-bar)
                     (> (or timer-ticks 0) (* 60 60))
                     ;; ($ui:textbox! {:box {:x 34}
                     ;;                :character portraits.princess
                     ;;                :text "Time to head to the next problem!"
-                    ;;                :action #($screen:select! :title)})
-                    ($screen:select! :map level color-bar)
+                    ;;                :action #($scene:select! :title)})
+                    ($scene:select! :map level color-bar)
                     :else
                     (merge state {:timer-ticks (+ (or timer-ticks 0) 1) :y (+ y dy) :dy dy}))))
      :tag :home
@@ -795,11 +736,11 @@
       })
 
 
-(defscreen $screen :game
+(defscene $scene :game
   {:state {}
    :tick
    (fn [{: bounds &as self} {: ticks : color-bar : screen-x : screen-y &as screen-state}]
-     ;; (if (btnp 7) ($screen:select! :pause))
+     ;; (if (btnp 7) ($scene:select! :pause))
      (react-entities! self screen-state)
      (spawn-players! self true)
      (spawn-home-portal! self true)
@@ -831,7 +772,7 @@
        (if (= (% ticks 60) 0)
            (self:recalculate-color-bar!))
        (if (empty? self.entities)
-           ($screen:select! :title))
+           ($scene:select! :title))
        ;; (icollect [_ v (ipairs self.entities)]
        ;;   (if (and (= :enemy v.tag) (> screen-state.ticks 60))
        ;;       (v:take-damage! {})))
@@ -944,11 +885,11 @@
     (poke (+ (+ (* CHANGE_COL 3) 2) PALETTE_ADDR) color)))
 
 (fn _G.BOOT []
-  ($screen:select! :title)
+  ($scene:select! :title)
   )
 
 (fn _G.TIC []
-  ($screen:tick!))
+  ($scene:tick!))
 
 (fn _G.OVR []
-  ($screen:draw!))
+  ($scene:draw!))

@@ -39,4 +39,3 @@
         h (or h (min (* chr-size (count lines)) max-h))
         line-count (max (// h chr-size) 1)]
     (partition lines line-count)))
-

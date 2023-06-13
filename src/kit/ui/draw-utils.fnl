@@ -1,19 +1,21 @@
+(include "kit.lib")
+
+(fn draw-box! [{: w : h : x : y : bg-color : border-color}]
+  (if bg-color (rect x y w h bg-color))
+  (if border-color (rectb x y w h border-color)))
+
 (fn pick-animated-sprite [{ : w : animate : ticks : sprite}]
   (if (nil? animate)
       sprite
       (let [{ : period : steps } animate
             new-steps  (mapiv #(if (table? $2)
-                                    (merge {:index $1} $2)
-                                    {:index $1 :t $2})
+                                   (merge {:index $1} $2)
+                                   {:index $1 :t $2})
                               steps)
             time-spot   (% ticks period)
             sheet-index (or (last (mapv #(if (>= time-spot $.t) $.index) new-steps)) 1)
             sprite-num  (* (or w 1) (- sheet-index 1))]
         (+ sprite-num sprite))))
-
-(fn draw-box! [{: w : h : x : y : bg-color : border-color}]
-  (if bg-color (rect x y w h bg-color))
-  (if border-color (rectb x y w h border-color)))
 
 (fn draw-sprite! [{: sprite : w : h : scale : trans : x : y
                    : animate : ticks
