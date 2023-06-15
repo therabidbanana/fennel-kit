@@ -741,7 +741,6 @@
    :tick
    (fn [{: bounds &as self} {: ticks : color-bar : screen-x : screen-y &as screen-state}]
      ;; (if (btnp 7) ($scene:select! :pause))
-     (react-entities! self screen-state)
      (spawn-players! self true)
      (spawn-home-portal! self true)
      ;; (draw-sky! screen-state)
@@ -894,9 +893,9 @@
 (fn _G.TIC []
   ($scene:tick!)
 
-  ($scene:draw!)
   )
 
 (fn _G.OVR []
+  ($scene:draw!) ;; here to avoid bdr
   ($scene:overdraw!)
   )

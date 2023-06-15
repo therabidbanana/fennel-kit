@@ -23,8 +23,9 @@
     (mapv #($:render (merge (or $.state {}) scene-state) self) entities)))
 
 (global $scene
-        {:tick! #(let [scene-tick (. (or $.active {:tick #:noop}) :tick)
-                       new-state   (scene-tick $.active $.active.state)]
+        {:tick! #(let [scene-tick    (. (or $.active {:tick #:noop}) :tick)
+                       active-screen (react-entities! $.active $.active.state)
+                       new-state     (scene-tick $.active $.active.state)]
                    (tset $.active :state new-state)
                    (ui->react!)
                    (ui->display!))

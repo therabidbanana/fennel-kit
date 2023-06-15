@@ -504,8 +504,9 @@
     (mapv #($:render (merge (or $.state {}) scene-state) self) entities)))
 
 (global $scene
-        {:tick! #(let [scene-tick (. (or $.active {:tick #:noop}) :tick)
-                       new-state   (scene-tick $.active $.active.state)]
+        {:tick! #(let [scene-tick    (. (or $.active {:tick #:noop}) :tick)
+                       active-screen (react-entities! $.active $.active.state)
+                       new-state     (scene-tick $.active $.active.state)]
                    (tset $.active :state new-state)
                    (ui->react!)
                    (ui->display!))
@@ -1271,7 +1272,6 @@
    :tick
    (fn [{: bounds &as self} {: ticks : color-bar : screen-x : screen-y &as screen-state}]
      ;; (if (btnp 7) ($scene:select! :pause))
-     (react-entities! self screen-state)
      (spawn-players! self true)
      (spawn-home-portal! self true)
      ;; (draw-sky! screen-state)
@@ -1424,9 +1424,9 @@
 (fn _G.TIC []
   ($scene:tick!)
 
-  ($scene:draw!)
   )
 
 (fn _G.OVR []
+  ($scene:draw!) ;; here to avoid bdr
   ($scene:overdraw!)
   )
