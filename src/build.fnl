@@ -499,8 +499,9 @@
         (tset self :entities reacted))))
 
 (fn draw-entities! [self scene-state]
-  (let [scene-state (or scene-state {})]
-    (mapv #($:render (merge (or $.state {}) scene-state) self) self.entities)))
+  (let [scene-state (or scene-state {})
+        entities (or self.entities [])]
+    (mapv #($:render (merge (or $.state {}) scene-state) self) entities)))
 
 (global $scene
         {:tick! #(let [scene-tick (. (or $.active {:tick #:noop}) :tick)
@@ -508,9 +509,13 @@
                    (tset $.active :state new-state)
                    (ui->react!)
                    (ui->display!))
-         :draw! #(let [scene-draw (. (or $.active {:draw #:noop}) :draw)
-                       new-state   (scene-draw $.active $.active.state)]
-                   (ui->display!))
+         :draw! #(let [scene-draw (. (or $.active {:draw #:noop}) :draw)]
+                   (scene-draw $.active $.active.state)
+                   (draw-entities! $.active $.active.state))
+         :overdraw! #(let [scene-draw (. (or $.active {:overdraw #:noop}) :overdraw)]
+                       (if scene-draw
+                           (scene-draw $.active $.active.state))
+                       (ui->display!))
          :active nil
          :scenes {}
          ;; Swap + prepare
@@ -1306,43 +1311,44 @@
        {:ticks (+ screen-state.ticks 1) :screen-x new-screen-x : color-bar :screen-y new-screen-y}))
    :draw
    (fn [{: bounds &as self} {: screen-x : screen-y : color-bar &as screen-state}]
+     (draw-sky! screen-state)
+     (draw-map! {:x bounds.x :w bounds.w
+                 :y bounds.y :h bounds.h
+                 :sx (- 0 (- screen-x (* bounds.x 8))) :sy (- 0 (- screen-y (* bounds.y 8)))
+                 :trans 0
+                 :on-draw (fn [tile x y]
+                            (if (between? tile 242 247)
+                                (do (self:add-entity!
+                                     (build-portal {
+                                                    :color (?. color-cycle (- tile 241))
+                                                    :dx -0.5 :x (* x 8) :y (* y 8) :hp 10}))
+                                    (mset x y 0)
+                                    0)
+                                (?. enemy-portal-tiles tile)
+                                (do (self:add-entity!
+                                     (build-portal {
+                                                    :color (?. enemy-portal-tiles tile)
+                                                    :dx 0 :x (* x 8) :y (* y 8) :hp 10
+                                                    :stationary? true
+                                                    :cycle 97
+                                                    }))
+                                    (mset x y 0)
+                                    0)
+                                (= tile 240)
+                                (do (set self.state.home-x (* x 8))
+                                    (set self.state.home-y (* y 8))
+                                    tile)
+                                tile)
+                            )
+                 }))
+   :overdraw
+   (fn [self screen-state]
      (let [player-ent  (->> (filterv #(= $.firstp true) self.entities) first)
            player2-ent (->> (filterv #(= $.secondp true) self.entities) first)]
-       (draw-sky! screen-state)
-       (draw-map! {:x bounds.x :w bounds.w
-                   :y bounds.y :h bounds.h
-                   :sx (- 0 (- screen-x (* bounds.x 8))) :sy (- 0 (- screen-y (* bounds.y 8)))
-                   :trans 0
-                   :on-draw (fn [tile x y]
-                              (if (between? tile 242 247)
-                                  (do (self:add-entity!
-                                       (build-portal {
-                                                      :color (?. color-cycle (- tile 241))
-                                                      :dx -0.5 :x (* x 8) :y (* y 8) :hp 10}))
-                                      (mset x y 0)
-                                      0)
-                                  (?. enemy-portal-tiles tile)
-                                  (do (self:add-entity!
-                                       (build-portal {
-                                                      :color (?. enemy-portal-tiles tile)
-                                                      :dx 0 :x (* x 8) :y (* y 8) :hp 10
-                                                      :stationary? true
-                                                      :cycle 97
-                                                      }))
-                                      (mset x y 0)
-                                      0)
-                                  (= tile 240)
-                                  (do (set self.state.home-x (* x 8))
-                                      (set self.state.home-y (* y 8))
-                                      tile)
-                                  tile)
-                              )
-                   })
-       (draw-entities! self screen-state)
        (if player-ent (draw-stats player-ent true))
        (if player2-ent (draw-stats player2-ent false))
-       (draw-hud self screen-state))
-     )
+       (draw-hud self screen-state)
+       ))
    :entities []
    :add-entity! (fn [self ent] (into self.entities [ent]))
    :fetch-map-tile (fn fetch-map-tile [{: state : bounds &as self} {: x : y : color}]
@@ -1407,14 +1413,20 @@
         color (* (// (* 0xff (/ line scans)) 8) 8)]
     (poke (+ (+ (* CHANGE_COL 3) 0) PALETTE_ADDR) color)
     (poke (+ (+ (* CHANGE_COL 3) 1) PALETTE_ADDR) color)
-    (poke (+ (+ (* CHANGE_COL 3) 2) PALETTE_ADDR) color)))
+    (poke (+ (+ (* CHANGE_COL 3) 2) PALETTE_ADDR) color)
+
+    ))
 
 (fn _G.BOOT []
   ($scene:select! :title)
   )
 
 (fn _G.TIC []
-  ($scene:tick!))
+  ($scene:tick!)
+
+  ($scene:draw!)
+  )
 
 (fn _G.OVR []
-  ($scene:draw!))
+  ($scene:overdraw!)
+  )

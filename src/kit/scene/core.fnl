@@ -18,8 +18,9 @@
         (tset self :entities reacted))))
 
 (fn draw-entities! [self scene-state]
-  (let [scene-state (or scene-state {})]
-    (mapv #($:render (merge (or $.state {}) scene-state) self) self.entities)))
+  (let [scene-state (or scene-state {})
+        entities (or self.entities [])]
+    (mapv #($:render (merge (or $.state {}) scene-state) self) entities)))
 
 (global $scene
         {:tick! #(let [scene-tick (. (or $.active {:tick #:noop}) :tick)
@@ -27,9 +28,13 @@
                    (tset $.active :state new-state)
                    (ui->react!)
                    (ui->display!))
-         :draw! #(let [scene-draw (. (or $.active {:draw #:noop}) :draw)
-                       new-state   (scene-draw $.active $.active.state)]
-                   (ui->display!))
+         :draw! #(let [scene-draw (. (or $.active {:draw #:noop}) :draw)]
+                   (scene-draw $.active $.active.state)
+                   (draw-entities! $.active $.active.state))
+         :overdraw! #(let [scene-draw (. (or $.active {:overdraw #:noop}) :overdraw)]
+                       (if scene-draw
+                           (scene-draw $.active $.active.state))
+                       (ui->display!))
          :active nil
          :scenes {}
          ;; Swap + prepare
