@@ -1,21 +1,27 @@
-(var $config
-     {
-      :portraits
-      {:princess {:position :left :sprite 201 :w 4 :h 4
-                  :trans 0 :box {:bg-color 0 :border-color 13}}
-       :advisor {:position :left :sprite 161 :w 4 :h 4
-                 :trans 0 :box {:bg-color 0 :border-color 13}}}
-      })
+(local $config {})
 
-(var palette {:red 2 :orange 3 :yellow 4 :green 6 :blue 9 :purple 1})
-(var color-cycle [:red :orange :yellow :green :blue :purple])
-(var next-color {:red :orange :orange :yellow :yellow :green :green :blue :blue :purple :purple :red})
-(var prev-color {:red :purple :orange :red :yellow :orange :green :yellow :blue :green :purple :blue})
+(set $config.portraits
+     {:princess {:position :left :sprite 201 :w 4 :h 4
+                 :trans 0 :box {:bg-color 0 :border-color 13}}
+      :advisor {:position :left :sprite 161 :w 4 :h 4
+                :trans 0 :box {:bg-color 0 :border-color 13}}})
 
-(var tile-starts {:red 0     :orange 8
-                  :yellow 48 :green 56
-                  :blue 96   :purple 104
-                  :grey 152})
+(set $config.palette
+     {:red 2 :orange 3 :yellow 4 :green 6 :blue 9 :purple 1})
+
+(set $config.next-color
+     {:red :orange :orange :yellow :yellow :green :green :blue :blue :purple :purple :red})
+
+(set $config.prev-color
+ {:red :purple :orange :red :yellow :orange :green :yellow :blue :green :purple :blue})
+
+(set $config.color-cycle [:red :orange :yellow :green :blue :purple])
+
+(set $config.tile-starts
+     {:red 0     :orange 8
+      :yellow 48 :green 56
+      :blue 96   :purple 104
+      :grey 152})
 
 (var t 0)
 (var player-sprite 256)

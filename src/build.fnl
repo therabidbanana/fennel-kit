@@ -571,24 +571,30 @@
 
 ;; [TQ-Bundler: game.config]
 
-(var $config
-     {
-      :portraits
-      {:princess {:position :left :sprite 201 :w 4 :h 4
-                  :trans 0 :box {:bg-color 0 :border-color 13}}
-       :advisor {:position :left :sprite 161 :w 4 :h 4
-                 :trans 0 :box {:bg-color 0 :border-color 13}}}
-      })
+(local $config {})
 
-(var palette {:red 2 :orange 3 :yellow 4 :green 6 :blue 9 :purple 1})
-(var color-cycle [:red :orange :yellow :green :blue :purple])
-(var next-color {:red :orange :orange :yellow :yellow :green :green :blue :blue :purple :purple :red})
-(var prev-color {:red :purple :orange :red :yellow :orange :green :yellow :blue :green :purple :blue})
+(set $config.portraits
+     {:princess {:position :left :sprite 201 :w 4 :h 4
+                 :trans 0 :box {:bg-color 0 :border-color 13}}
+      :advisor {:position :left :sprite 161 :w 4 :h 4
+                :trans 0 :box {:bg-color 0 :border-color 13}}})
 
-(var tile-starts {:red 0     :orange 8
-                  :yellow 48 :green 56
-                  :blue 96   :purple 104
-                  :grey 152})
+(set $config.palette
+     {:red 2 :orange 3 :yellow 4 :green 6 :blue 9 :purple 1})
+
+(set $config.next-color
+     {:red :orange :orange :yellow :yellow :green :green :blue :blue :purple :purple :red})
+
+(set $config.prev-color
+ {:red :purple :orange :red :yellow :orange :green :yellow :blue :green :purple :blue})
+
+(set $config.color-cycle [:red :orange :yellow :green :blue :purple])
+
+(set $config.tile-starts
+     {:red 0     :orange 8
+      :yellow 48 :green 56
+      :blue 96   :purple 104
+      :grey 152})
 
 (var t 0)
 (var player-sprite 256)
@@ -726,7 +732,7 @@
    (fn [self completions]
      (let [total-completion (sum (mapv #(completion-rate $1
                                                          (or (?. completions $1) {}))
-                                       color-cycle))
+                                       $config.color-cycle))
            total-completion-rate (// (* 100 (/ total-completion 600)) 1)]
        (poke 0x03FF8 0)
        ($ui:clear-all!)
@@ -794,7 +800,7 @@
                        :keep-open? (?. completions :purple)
                        :action #(level-select :purple)}
                       ]}
-           completed-count (-> (filterv #(?. completions $) color-cycle) count)]
+           completed-count (-> (filterv #(?. completions $) $config.color-cycle) count)]
        (if (< completed-count 6)
            (do
              (tset self :completions completions)
@@ -848,7 +854,8 @@
   (let [col (% tile 16)
         row (// tile 16)
         current-color (tile-color tile)
-        dist (- (?. tile-starts current-color) (?. tile-starts color))]
+        dist (- (?. $config.tile-starts current-color)
+                (?. $config.tile-starts color))]
     (if (or (= current-color :none) (= color :none) (= tile 0))
         tile
         (< row 9)
@@ -884,7 +891,7 @@
      :render (fn [{&as bullet} {: x : y : color : h : w : screen-x : screen-y} _e]
                (let [shifted-x (- x screen-x)
                      shifted-y (- y screen-y)]
-                 (rect shifted-x shifted-y w h (?. palette color))))}))
+                 (rect shifted-x shifted-y w h (?. $config.palette color))))}))
 
 
 (fn player-collides? [tile]
@@ -926,8 +933,8 @@
         bounced? (and intersected collisions.top)
         hp (or hp 3)
         hp (if damaged? (- hp 1) hp)
-        color (if (btnp (if firstp 6 secondp 14)) (?. prev-color color)
-                  (btnp (if firstp 5 secondp 13)) (?. next-color color)
+        color (if (btnp (if firstp 6 secondp 14)) (?. $config.prev-color color)
+                  (btnp (if firstp 5 secondp 13)) (?. $config.next-color color)
                   damaged? intersected.color
                   color)
         new-invuln (if damaged? 200 (max (- (or invuln 1) 1) 0))
@@ -965,7 +972,7 @@
         (merge state {: x : y : dx : dy : color : dir :invuln new-invuln : hp}))))
 
 (fn completion-rate [color current]
-  (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) color-cycle))
+  (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) $config.color-cycle))
                      (or current.grey 0))
         all-tiles (max all-tiles 1) ;; Hack around possible div/0
         chosen    (or (?. current color) 0)]
@@ -974,9 +981,9 @@
 (fn build-player [base-state first-player]
   {:render (fn draw-player [{: character &as ent} {: dir : color : invuln &as state} _others]
              (let [sprite (if (> (% (or invuln 0) 33) 29)
-                              (?. sprite-colors (?. next-color color))
+                              (?. sprite-colors (?. $config.next-color color))
                               (and (< (% (or invuln 0) 33) 9) (not= 0 invuln))
-                              (?. sprite-colors (?. prev-color color))
+                              (?. sprite-colors (?. $config.prev-color color))
                               (?. sprite-colors color))
                    flip (if (> (or dir 1) 0) 0 1)
                    shifted-x (- state.x state.screen-x)
@@ -1103,8 +1110,8 @@
     {:render (fn [self {: x : y : screen-x : screen-y : hp : max-hp &as state} {&as game}]
                (let [x (- x screen-x)
                      y (- y screen-y)]
-                 (draw-box! {:x (+ x 2) :y (- y 4) :w 12 :h 3 :border-color (?. palette color)})
-                 (draw-box! {:x (+ x 3) :y (- y 3) :w (* (/ hp max-hp) 10) :h 1 :bg-color (?. palette color)})
+                 (draw-box! {:x (+ x 2) :y (- y 4) :w 12 :h 3 :border-color (?. $config.palette color)})
+                 (draw-box! {:x (+ x 3) :y (- y 3) :w (* (/ hp max-hp) 10) :h 1 :bg-color (?. $config.palette color)})
                  (draw-entity self state game)))
      :react portal-react
      :tag :enemy
@@ -1152,7 +1159,7 @@
      {:sprite sprite :trans 0 :w 1 :h 1 :scale 2}}))
 
 (fn draw-hud-colorbar [current]
-  (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) color-cycle))
+  (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) $config.color-cycle))
                      (or current.grey 0))
         red-portion (* 234 (/ (or current.red 0) all-tiles))
         orange-portion (* 234 (/ (or current.orange 0) all-tiles))
@@ -1164,12 +1171,12 @@
         ]
     ;; (print (.. "All tiles: " all-tiles) 10 10 13)
     ;; (print (.. "Red tiles: " current.red) 10 30 13)
-    (draw-box! {:x 3 :y 3 :w red-portion :h 2 :bg-color palette.red})
-    (draw-box! {:x (sum 3 red-portion) :y 3 :w orange-portion :h 2 :bg-color palette.orange})
-    (draw-box! {:x (sum 3 red-portion orange-portion) :y 3 :w yellow-portion :h 2 :bg-color palette.yellow})
-    (draw-box! {:x (sum 3 red-portion orange-portion yellow-portion) :y 3 :w green-portion :h 2 :bg-color palette.green})
-    (draw-box! {:x (sum 3 red-portion orange-portion yellow-portion green-portion) :y 3 :w blue-portion :h 2 :bg-color palette.blue})
-    (draw-box! {:x (sum 3 red-portion orange-portion yellow-portion green-portion blue-portion) :y 3 :w purple-portion :h 2 :bg-color palette.purple})
+    (draw-box! {:x 3 :y 3 :w red-portion :h 2 :bg-color $config.palette.red})
+    (draw-box! {:x (sum 3 red-portion) :y 3 :w orange-portion :h 2 :bg-color $config.palette.orange})
+    (draw-box! {:x (sum 3 red-portion orange-portion) :y 3 :w yellow-portion :h 2 :bg-color $config.palette.yellow})
+    (draw-box! {:x (sum 3 red-portion orange-portion yellow-portion) :y 3 :w green-portion :h 2 :bg-color $config.palette.green})
+    (draw-box! {:x (sum 3 red-portion orange-portion yellow-portion green-portion) :y 3 :w blue-portion :h 2 :bg-color $config.palette.blue})
+    (draw-box! {:x (sum 3 red-portion orange-portion yellow-portion green-portion blue-portion) :y 3 :w purple-portion :h 2 :bg-color $config.palette.purple})
     (draw-box! {:x (sum 3 red-portion orange-portion yellow-portion green-portion blue-portion purple-portion) :y 3 :w grey-portion :h 2 :bg-color 14})
     (draw-box! {:x 2 :y 2 :w 236 :h 4 :border-color 12})
     ))
@@ -1323,7 +1330,7 @@
                             (if (between? tile 242 247)
                                 (do (self:add-entity!
                                      (build-portal {
-                                                    :color (?. color-cycle (- tile 241))
+                                                    :color (?. $config.color-cycle (- tile 241))
                                                     :dx -0.5 :x (* x 8) :y (* y 8) :hp 10}))
                                     (mset x y 0)
                                     0)

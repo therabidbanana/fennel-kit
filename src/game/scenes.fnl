@@ -94,7 +94,7 @@
    (fn [self completions]
      (let [total-completion (sum (mapv #(completion-rate $1
                                                          (or (?. completions $1) {}))
-                                       color-cycle))
+                                       $config.color-cycle))
            total-completion-rate (// (* 100 (/ total-completion 600)) 1)]
        (poke 0x03FF8 0)
        ($ui:clear-all!)
@@ -162,7 +162,7 @@
                        :keep-open? (?. completions :purple)
                        :action #(level-select :purple)}
                       ]}
-           completed-count (-> (filterv #(?. completions $) color-cycle) count)]
+           completed-count (-> (filterv #(?. completions $) $config.color-cycle) count)]
        (if (< completed-count 6)
            (do
              (tset self :completions completions)
