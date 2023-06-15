@@ -567,10 +567,257 @@
 
 ;; -------
 
+;; [TQ-Bundler: game.scenes]
+
+;; [TQ-Bundler: game.config]
+
+(var $config
+     {
+      :portraits
+      {:princess {:position :left :sprite 201 :w 4 :h 4
+                  :trans 0 :box {:bg-color 0 :border-color 13}}
+       :advisor {:position :left :sprite 161 :w 4 :h 4
+                 :trans 0 :box {:bg-color 0 :border-color 13}}}
+      })
+
+(var palette {:red 2 :orange 3 :yellow 4 :green 6 :blue 9 :purple 1})
+(var color-cycle [:red :orange :yellow :green :blue :purple])
+(var next-color {:red :orange :orange :yellow :yellow :green :green :blue :blue :purple :purple :red})
+(var prev-color {:red :purple :orange :red :yellow :orange :green :yellow :blue :green :purple :blue})
+
+(var tile-starts {:red 0     :orange 8
+                  :yellow 48 :green 56
+                  :blue 96   :purple 104
+                  :grey 152})
+
 (var t 0)
 (var player-sprite 256)
 (var enemy-portal-colors {:red 32 :orange 40 :yellow 80 :green 88 :blue 128 :purple 136 :white 176})
 (var enemy-portal-tiles {32 :red 40 :orange 80 :yellow 88 :green 128 :blue 136 :purple 176 :white})
+
+(var sprite-colors {:red 256 :orange 264 :blue 320 :green 296 :purple 328 :yellow 288})
+
+(var enemy-sprite-colors {:red 384 :orange 392 :yellow 416 :green 424 :blue 448 :purple 456})
+
+
+(var test-level-bounds
+     {:yellow {:x 0 :y 0
+               :w (* 30 5) :h 17}
+      :red {:x 0 :y 0
+            :w (* 30 5) :h 17}
+      :orange {:x 0 :y 0
+               :w (* 30 5) :h 17}
+      :blue {:x 0 :y 17
+             :w (* 30 3) :h 20}
+      :purple {:x 0 :y 17
+               :w (* 30 3) :h 17}
+      :green {:x 0 :y 17
+              :w (* 30 3) :h 17}
+      })
+
+(var real-level-bounds
+     {:yellow {:x (* 30 5) :y (* 17 4)
+               :w (* 30 2) :h (* 17 4)}
+      :red {:x 0 :y (* 17 4)
+            :w (* 30 5) :h 17}
+      :orange {:x 0 :y 0
+               :w (* 30 5) :h 17}
+      :blue {:x 0 :y (* 17 3)
+             :w (* 30 3) :h 17}
+      :purple {:x 0 :y (* 17 2)
+               :w (* 30 6) :h 17}
+      :green {:x 0 :y (* 17 5)
+              :w (* 30 4) :h (* 17 2)}
+      })
+
+
+;; [/TQ-Bundler: game.config]
+
+
+(defscene $scene :title
+  {:state {}
+   :tick
+   (fn [self {&as screen-state}]
+     {:ticks (+ (or screen-state.ticks 0) 1)})
+   :draw
+   (fn [self {: ticks &as screen-state}]
+     (cls 0)
+     (draw-sprite! {:sprite 16 :x 10 :y 4 :w 12 :h 4 :trans 0})
+     (draw-sprite! {:sprite 80 :x 36 :y (+ 25 (* 5 (math.sin (% (/ ticks 60) 60)))) :w 12 :h 4 :trans 0})
+     (draw-sprite! {:sprite 161 :x 60 :y 48 :w 10 :h 3 :trans 0})
+     (draw-sprite! {:sprite 460 :x 150 :y 48 :w 4 :h 4 :trans 0})
+     ;; (print "Disastrous Flying" 22 22 15 false 2)
+     ;; (print "Critters" 68 52 15 false 2)
+     ;; (print "Disastrous Flying" 23 23 13 false 2)
+     ;; (print "Critters" 69 53 13 false 2)
+     )
+   :prepare
+   (fn []
+     (sync 0 1)
+     (poke 0x03FF8 15)
+     ($ui:clear-all!)
+     ($ui:menu! {:box {:x 50 :w 140}
+                 :options [{:label "Play Game" :action #(do (set $scene.scenes.game.two_mode false)
+                                                            (set $scene.scenes.intro.two_mode false)
+                                                            (set $scene.scenes.map.two_mode false)
+                                                            ($scene:select! :intro))}
+                           {:label "Play Two Player" :action #(do (set $scene.scenes.game.two_mode true)
+                                                                  (set $scene.scenes.intro.two_mode true)
+                                                                  (set $scene.scenes.map.two_mode true)
+                                                                  ($scene:select! :intro))}]}))})
+
+
+(fn dialog-chain [after-action dialog ...]
+  (let [next-dialogs [...]]
+    (if (empty? next-dialogs)
+        ($ui:textbox! (merge dialog :action after-action))
+        ($ui:textbox! (merge dialog :action #(dialog-chain after-action (table.unpack next-dialogs)))))))
+
+(defscene $scene :intro
+  {:tick
+   (fn [] (cls 0))
+   :draw
+   (fn [])
+   :prepare
+   (fn []
+     (sync 0)
+     (poke 0x03FF8 0)
+     ($ui:clear-all!)
+     (dialog-chain #(do
+                      ;; NEW GAME logic
+                      (tset $scene.scenes.map :completions {})
+                      ($scene:select! :map))
+                   {:box {:x 34}
+                    :character $config.portraits.advisor
+                    :text "Princess! Please help us! It's disastrous!"}
+                   {:box {:x 34 :y 0}
+                    :character $config.portraits.princess
+                    :text "What's happening?"}
+                   {:box {:x 34}
+                    :character $config.portraits.advisor
+                    :text "There's a bunch of critters, flying around the kingdoms, causing all sorts of destruction!"}
+                   {:box {:x 34 :y 0}
+                    :character $config.portraits.princess
+                    :text "Where did they come from?"}
+                   {:box {:x 34}
+                    :character $config.portraits.advisor
+                    :text "They appear to be crawling out of colorized portals!"}
+                   {:box {:x 34 :y 0}
+                    :character $config.portraits.princess
+                    :text "What!? I'll see what I can do with my Rainbow Witch powers!"}
+                   {:box {:x 34}
+                    :character $config.portraits.advisor
+                    :text "Be careful! They appear to be immune to weapons of their own color!"}
+                   {:box {:x 34 :y 0}
+                    :character $config.portraits.princess
+                    :text "Good thing I can change colors on demand!"}
+                   )
+     )})
+
+(defscene $scene :outro
+  {:tick
+   (fn []
+     (cls 0)
+     )
+   :draw
+   (fn []
+     )
+   :prepare
+   (fn [self completions]
+     (let [total-completion (sum (mapv #(completion-rate $1
+                                                         (or (?. completions $1) {}))
+                                       color-cycle))
+           total-completion-rate (// (* 100 (/ total-completion 600)) 1)]
+       (poke 0x03FF8 0)
+       ($ui:clear-all!)
+       (dialog-chain #($scene:select! :title)
+                     {:box {:x 34}
+                      :character $config.portraits.advisor
+                      :text "Great work princess! Did all the monsters go away?"}
+                     {:box {:x 34 :y 0}
+                      :character $config.portraits.princess
+                      :text "Yes! All the portals have been closed. Peace is restored to the kingdom."}
+                     {:box {}
+                      :text (.. "Completion Rate: " total-completion-rate "%")}))
+     )})
+
+(defscene $scene :map
+  {:tick
+   (fn []
+     (cls 0)
+     )
+   :draw
+   (fn []
+     )
+   :completions {}
+   :prepare
+   (fn [self level-name color-bar]
+     (let [completions  self.completions
+           completions  (if level-name
+                            (merge self.completions {level-name color-bar})
+                            completions)
+           level-select (fn -level-select [color]
+                          (if
+                           (?. completions color)
+                           (do
+                             (dialog-chain #:noop
+                                           {:box {:x 34 :y 0}
+                                            :character $config.portraits.princess
+                                            :text (.. "Looks like I've already helped that world! - " (completion-rate color (?. completions color)) "%")
+                                            }))
+                           ;; else
+                           (do
+                             (set $scene.scenes.game.level color)
+                             ($scene:select! :game))))
+           sprite-pick  (fn -sprite-pick [color] (if (?. completions color)
+                                                     enemy-portal-colors.white
+                                                     (?. enemy-portal-colors color)))
+           map-details
+           {
+            :map {:x 210 :y 17 :trans 0}
+            :sprites [{:h 1 :w 1 :sprite (sprite-pick :red) :trans 0 :x 32 :y 16
+                       :keep-open? (?. completions :red)
+                       :action #(level-select :red)}
+                      {:h 1 :w 1 :sprite (sprite-pick :orange) :trans 0 :x 80 :y 40
+                       :keep-open? (?. completions :orange)
+                       :action #(level-select :orange)}
+                      {:h 1 :w 1 :sprite (sprite-pick :yellow) :trans 0 :x 160 :y 16
+                       :keep-open? (?. completions :yellow)
+                       :action #(level-select :yellow)}
+                      {:h 1 :w 1 :sprite (sprite-pick :green) :trans 0 :x 200 :y 72
+                       :keep-open? (?. completions :green)
+                       :action #(level-select :green)}
+                      {:h 1 :w 1 :sprite (sprite-pick :blue) :trans 0 :x 104 :y 112
+                       :keep-open? (?. completions :blue)
+                       :action #(level-select :blue)}
+                      {:h 1 :w 1 :sprite (sprite-pick :purple) :trans 0 :x 24 :y 72
+                       :keep-open? (?. completions :purple)
+                       :action #(level-select :purple)}
+                      ]}
+           completed-count (-> (filterv #(?. completions $) color-cycle) count)]
+       (if (< completed-count 6)
+           (do
+             (tset self :completions completions)
+             (poke 0x03FF8 0)
+             ($ui:clear-all!)
+             ($ui:sprite-selector! map-details)
+             (dialog-chain #:noop
+                           {:box {:x 34 :y 0}
+                            :character $config.portraits.princess
+                            :text "Where should I go?"
+                            }))
+           ;; Game end
+           (do
+             ($scene:select! :outro completions))))
+     )})
+
+
+
+
+
+
+;; [/TQ-Bundler: game.scenes]
+
 
 (fn draw-entity [{ : character &as ent} state {: bounds &as game}]
   (let [shifted-x (- state.x (or state.screen-x 0))
@@ -596,11 +843,6 @@
         :else
         (if secondary? :grey :none)
         )))
-
-(var tile-starts {:red 0     :orange 8
-                  :yellow 48 :green 56
-                  :blue 96   :purple 104
-                  :grey 152})
 
 (fn shift-tile-color [tile color]
   (let [col (% tile 16)
@@ -630,8 +872,6 @@
         (do (game:paint-tile! {: x : y : color}) :die)
         (merge state {: x : y}))))
 
-(var palette {:red 2 :orange 3 :yellow 4 :green 6 :blue 9 :purple 1})
-
 (fn build-bullet [{: x : y : color : speed &as state}]
   (let [speed (or speed 2.5)
         dx    speed
@@ -646,10 +886,6 @@
                      shifted-y (- y screen-y)]
                  (rect shifted-x shifted-y w h (?. palette color))))}))
 
-
-(var color-cycle [:red :orange :yellow :green :blue :purple])
-(var next-color {:red :orange :orange :yellow :yellow :green :green :blue :blue :purple :purple :red})
-(var prev-color {:red :purple :orange :red :yellow :orange :green :yellow :blue :green :purple :blue})
 
 (fn player-collides? [tile]
   (and tile.solid? (or tile.would-paint? (= tile.color :grey))))
@@ -728,213 +964,12 @@
         :die
         (merge state {: x : y : dx : dy : color : dir :invuln new-invuln : hp}))))
 
-(defscene $scene :pause
-  {:tick
-   (fn []
-     (cls 14)
-     (print "Paused..." 84 24 13))
-   :prepare
-   (fn []
-     (poke 0x03FF8 8)
-     ($ui:clear-all!)
-     ($ui:menu! {:box {:x 50 :w 140}
-                 :options [{:label "Play" :action #($scene:swap! :game)}
-                           {:label "Quit" :action #($scene:select! :title)}]}))})
-
-(var portraits {
-                :princess {:position :left :sprite 201 :w 4 :h 4 :trans 0 :box {:bg-color 0 :border-color 13}}
-                :advisor {:position :left :sprite 161 :w 4 :h 4 :trans 0 :box {:bg-color 0 :border-color 13}}
-                })
-(fn dialog-chain [after-action dialog ...]
-  (let [next-dialogs [...]]
-    (if (empty? next-dialogs)
-       ($ui:textbox! (merge dialog :action after-action))
-       ($ui:textbox! (merge dialog :action #(dialog-chain after-action (table.unpack next-dialogs)))))))
-
-
-(defscene $scene :intro
-  {:tick
-   (fn []
-     (cls 0)
-     )
-   :draw
-   (fn []
-     )
-   :prepare
-   (fn []
-     (sync 0)
-     (poke 0x03FF8 0)
-     ($ui:clear-all!)
-     (dialog-chain #(do
-                      ;; NEW GAME logic
-                      (tset $scene.scenes.map :completions {})
-                      ($scene:select! :map))
-                   {:box {:x 34}
-                    :character portraits.advisor
-                    :text "Princess! Please help us! It's disastrous!"}
-                   {:box {:x 34 :y 0}
-                    :character portraits.princess
-                    :text "What's happening?"}
-                   {:box {:x 34}
-                    :character portraits.advisor
-                    :text "There's a bunch of critters, flying around the kingdoms, causing all sorts of destruction!"}
-                   {:box {:x 34 :y 0}
-                    :character portraits.princess
-                    :text "Where did they come from?"}
-                   {:box {:x 34}
-                    :character portraits.advisor
-                    :text "They appear to be crawling out of colorized portals!"}
-                   {:box {:x 34 :y 0}
-                    :character portraits.princess
-                    :text "What!? I'll see what I can do with my Rainbow Witch powers!"}
-                   {:box {:x 34}
-                    :character portraits.advisor
-                    :text "Be careful! They appear to be immune to weapons of their own color!"}
-                   {:box {:x 34 :y 0}
-                    :character portraits.princess
-                    :text "Good thing I can change colors on demand!"}
-                   )
-     )})
-
-
 (fn completion-rate [color current]
   (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) color-cycle))
                      (or current.grey 0))
         all-tiles (max all-tiles 1) ;; Hack around possible div/0
         chosen    (or (?. current color) 0)]
     (// (* (/ chosen all-tiles) 100) 1)))
-
-(defscene $scene :outro
-  {:tick
-   (fn []
-     (cls 0)
-     )
-   :draw
-   (fn []
-     )
-   :prepare
-   (fn [self completions]
-     (let [total-completion (sum (mapv #(completion-rate $1
-                                                         (or (?. completions $1) {}))
-                                       color-cycle))
-           total-completion-rate (// (* 100 (/ total-completion 600)) 1)]
-       (poke 0x03FF8 0)
-       ($ui:clear-all!)
-       (dialog-chain #($scene:select! :title)
-                     {:box {:x 34}
-                      :character portraits.advisor
-                      :text "Great work princess! Did all the monsters go away?"}
-                     {:box {:x 34 :y 0}
-                      :character portraits.princess
-                      :text "Yes! All the portals have been closed. Peace is restored to the kingdom."}
-                     {:box {}
-                      :text (.. "Completion Rate: " total-completion-rate "%")}))
-     )})
-
-(defscene $scene :map
-  {:tick
-   (fn []
-     (cls 0)
-     )
-   :draw
-   (fn []
-     )
-   :completions {}
-   :prepare
-   (fn [self level-name color-bar]
-     (let [completions  self.completions
-           completions  (if level-name
-                            (merge self.completions {level-name color-bar})
-                            completions)
-           level-select (fn -level-select [color]
-                          (if
-                           (?. completions color)
-                           (do
-                             (dialog-chain #:noop
-                                           {:box {:x 34 :y 0}
-                                            :character portraits.princess
-                                            :text (.. "Looks like I've already helped that world! - " (completion-rate color (?. completions color)) "%")
-                                            }))
-                           ;; else
-                           (do
-                             (set $scene.scenes.game.level color)
-                             ($scene:select! :game))))
-           sprite-pick  (fn -sprite-pick [color] (if (?. completions color)
-                                                     enemy-portal-colors.white
-                                                     (?. enemy-portal-colors color)))
-           map-details
-           {
-            :map {:x 210 :y 17 :trans 0}
-            :sprites [{:h 1 :w 1 :sprite (sprite-pick :red) :trans 0 :x 32 :y 16
-                       :keep-open? (?. completions :red)
-                       :action #(level-select :red)}
-                      {:h 1 :w 1 :sprite (sprite-pick :orange) :trans 0 :x 80 :y 40
-                       :keep-open? (?. completions :orange)
-                       :action #(level-select :orange)}
-                      {:h 1 :w 1 :sprite (sprite-pick :yellow) :trans 0 :x 160 :y 16
-                       :keep-open? (?. completions :yellow)
-                       :action #(level-select :yellow)}
-                      {:h 1 :w 1 :sprite (sprite-pick :green) :trans 0 :x 200 :y 72
-                       :keep-open? (?. completions :green)
-                       :action #(level-select :green)}
-                      {:h 1 :w 1 :sprite (sprite-pick :blue) :trans 0 :x 104 :y 112
-                       :keep-open? (?. completions :blue)
-                       :action #(level-select :blue)}
-                      {:h 1 :w 1 :sprite (sprite-pick :purple) :trans 0 :x 24 :y 72
-                       :keep-open? (?. completions :purple)
-                       :action #(level-select :purple)}
-                      ]}
-           completed-count (-> (filterv #(?. completions $) color-cycle) count)]
-       (if (< completed-count 6)
-           (do
-             (tset self :completions completions)
-             (poke 0x03FF8 0)
-             ($ui:clear-all!)
-             ($ui:sprite-selector! map-details)
-             (dialog-chain #:noop
-                           {:box {:x 34 :y 0}
-                            :character portraits.princess
-                            :text "Where should I go?"
-                            }))
-           ;; Game end
-           (do
-             ($scene:select! :outro completions))))
-     )})
-
-
-(defscene $scene :title
-  {:state {}
-   :tick
-   (fn [self {&as screen-state}]
-     {:ticks (+ (or screen-state.ticks 0) 1)})
-   :draw
-   (fn [self {: ticks &as screen-state}]
-     (cls 0)
-     (draw-sprite! {:sprite 16 :x 10 :y 4 :w 12 :h 4 :trans 0})
-     (draw-sprite! {:sprite 80 :x 36 :y (+ 25 (* 5 (math.sin (% (/ ticks 60) 60)))) :w 12 :h 4 :trans 0})
-     (draw-sprite! {:sprite 161 :x 60 :y 48 :w 10 :h 3 :trans 0})
-     (draw-sprite! {:sprite 460 :x 150 :y 48 :w 4 :h 4 :trans 0})
-     ;; (print "Disastrous Flying" 22 22 15 false 2)
-     ;; (print "Critters" 68 52 15 false 2)
-     ;; (print "Disastrous Flying" 23 23 13 false 2)
-     ;; (print "Critters" 69 53 13 false 2)
-     )
-   :prepare
-   (fn []
-     (sync 0 1)
-     (poke 0x03FF8 15)
-     ($ui:clear-all!)
-     ($ui:menu! {:box {:x 50 :w 140}
-                 :options [{:label "Play Game" :action #(do (set $scene.scenes.game.two_mode false)
-                                                            (set $scene.scenes.intro.two_mode false)
-                                                            (set $scene.scenes.map.two_mode false)
-                                                            ($scene:select! :intro))}
-                           {:label "Play Two Player" :action #(do (set $scene.scenes.game.two_mode true)
-                                                                  (set $scene.scenes.intro.two_mode true)
-                                                                  (set $scene.scenes.map.two_mode true)
-                                                                  ($scene:select! :intro))}]}))})
-
-(var sprite-colors {:red 256 :orange 264 :blue 320 :green 296 :purple 328 :yellow 288})
 
 (fn build-player [base-state first-player]
   {:render (fn draw-player [{: character &as ent} {: dir : color : invuln &as state} _others]
@@ -993,7 +1028,6 @@
           (if would-paint? (game:paint-tile! {:x (+ x 7) :y (+ y 7) : color}))
           (merge state {: x : y : dx : dy})))))
 
-(var enemy-sprite-colors {:red 384 :orange 392 :yellow 416 :green 424 :blue 448 :purple 456})
 (fn build-enemy [{: color &as base-state}]
   (let [color (or color :red)
         sprite (?. enemy-sprite-colors color)
@@ -1096,13 +1130,13 @@
                                     first)]
                 (if (touches? (self:collision-box) (player-ent:collision-box))
                     ;; ($ui:textbox! {:box {:x 34}
-                    ;;                :character portraits.princess
+                    ;;                :character $config.portraits.princess
                     ;;                :text "Time to head to the next problem!"
                     ;;                :action #($scene:select! :title)})
                     ($scene:select! :map level color-bar)
                     (> (or timer-ticks 0) (* 60 60))
                     ;; ($ui:textbox! {:box {:x 34}
-                    ;;                :character portraits.princess
+                    ;;                :character $config.portraits.princess
                     ;;                :text "Time to head to the next problem!"
                     ;;                :action #($scene:select! :title)})
                     ($scene:select! :map level color-bar)
@@ -1193,7 +1227,7 @@
         :noop
         (do
           (if during-game
-              ($ui:textbox! {:box {:x 34} :text "Ouch!" :character portraits.princess}))
+              ($ui:textbox! {:box {:x 34} :text "Ouch!" :character $config.portraits.princess}))
           (for [x bounds.x (- (+ bounds.x bounds.w) 1)]
             (for [y bounds.y (- (+ bounds.y bounds.h) 1)]
               (let [tile (mget x y)]
@@ -1213,7 +1247,7 @@
         :noop
         (do
           (if during-game
-              ($ui:textbox! {:box {:x 34} :text "oof!" :character portraits.princess}))
+              ($ui:textbox! {:box {:x 34} :text "oof!" :character $config.portraits.princess}))
           (let [x (+ first-player.state.x 8)
                 y (+ first-player.state.y 8)]
             (self:add-entity! (build-player {:invuln (if during-game 200 0) :x x :y y :color level} false)))
@@ -1225,7 +1259,7 @@
     (if (or home-ent (> enemy-count 0))
         :noop
         (do
-          ($ui:textbox! {:box {:x 34} :text "Looks like I can head home. Maybe I should clean up a bit first?" :character portraits.princess})
+          ($ui:textbox! {:box {:x 34} :text "Looks like I can head home. Maybe I should clean up a bit first?" :character $config.portraits.princess})
           ;; Look through tile bounds
           (for [x bounds.x (- (+ bounds.x bounds.w) 1)]
             (for [y bounds.y (- (+ bounds.y bounds.h) 1)]
@@ -1235,37 +1269,6 @@
                  (let [shifted-y (- y 6)]
                    (self:add-entity! (build-home-portal {:x (* x 8) :y (* shifted-y 8)})))
                  ))))))))
-
-(var test-level-bounds
-     {:yellow {:x 0 :y 0
-               :w (* 30 5) :h 17}
-      :red {:x 0 :y 0
-            :w (* 30 5) :h 17}
-      :orange {:x 0 :y 0
-               :w (* 30 5) :h 17}
-      :blue {:x 0 :y 17
-             :w (* 30 3) :h 20}
-      :purple {:x 0 :y 17
-               :w (* 30 3) :h 17}
-      :green {:x 0 :y 17
-              :w (* 30 3) :h 17}
-      })
-
-(var real-level-bounds
-     {:yellow {:x (* 30 5) :y (* 17 4)
-               :w (* 30 2) :h (* 17 4)}
-      :red {:x 0 :y (* 17 4)
-            :w (* 30 5) :h 17}
-      :orange {:x 0 :y 0
-               :w (* 30 5) :h 17}
-      :blue {:x 0 :y (* 17 3)
-             :w (* 30 3) :h 17}
-      :purple {:x 0 :y (* 17 2)
-               :w (* 30 6) :h 17}
-      :green {:x 0 :y (* 17 5)
-              :w (* 30 4) :h (* 17 2)}
-      })
-
 
 (defscene $scene :game
   {:state {}
