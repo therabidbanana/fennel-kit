@@ -138,8 +138,8 @@
                              (set $scene.scenes.game.level color)
                              ($scene:select! :game))))
            sprite-pick  (fn -sprite-pick [color] (if (?. completions color)
-                                                     enemy-portal-colors.white
-                                                     (?. enemy-portal-colors color)))
+                                                     $config.enemy-portal-colors.white
+                                                     (?. $config.enemy-portal-colors color)))
            map-details
            {
             :map {:x 210 :y 17 :trans 0}

@@ -194,10 +194,10 @@
 (fn build-player [base-state first-player]
   {:render (fn draw-player [{: character &as ent} {: dir : color : invuln &as state} _others]
              (let [sprite (if (> (% (or invuln 0) 33) 29)
-                              (?. sprite-colors (?. $config.next-color color))
+                              (?. $config.player-sprite-colors (?. $config.next-color color))
                               (and (< (% (or invuln 0) 33) 9) (not= 0 invuln))
-                              (?. sprite-colors (?. $config.prev-color color))
-                              (?. sprite-colors color))
+                              (?. $config.player-sprite-colors (?. $config.prev-color color))
+                              (?. $config.player-sprite-colors color))
                    flip (if (> (or dir 1) 0) 0 1)
                    shifted-x (- state.x state.screen-x)
                    shifted-y (- state.y state.screen-y)
@@ -250,7 +250,7 @@
 
 (fn build-enemy [{: color &as base-state}]
   (let [color (or color :red)
-        sprite (?. enemy-sprite-colors color)
+        sprite (?. $config.enemy-sprite-colors color)
         cycle (+ 10 (* 50 (math.random)))]
     {:render draw-entity
      :react enemy-react
@@ -319,7 +319,7 @@
 (fn build-portal [{: color : hp : stationary? &as base-state}]
   (let [color (or color :red)
         hp    (or hp 10)
-        sprite (?. enemy-portal-colors color)]
+        sprite (?. $config.enemy-portal-colors color)]
     {:render (fn [self {: x : y : screen-x : screen-y : hp : max-hp &as state} {&as game}]
                (let [x (- x screen-x)
                      y (- y screen-y)]
@@ -339,7 +339,7 @@
 
 (fn build-home-portal [{: color : hp &as base-state}]
   (let [color (or color :white)
-        sprite (?. enemy-portal-colors color)]
+        sprite (?. $config.enemy-portal-colors color)]
     {:render draw-entity
      :react (fn [{: color &as self}
                  {: hp : timer-ticks : cycle : x : y : dx : dy :  ticks : color-bar &as state}
@@ -547,10 +547,10 @@
                                                     :dx -0.5 :x (* x 8) :y (* y 8) :hp 10}))
                                     (mset x y 0)
                                     0)
-                                (?. enemy-portal-tiles tile)
+                                (?. $config.enemy-portal-tiles tile)
                                 (do (self:add-entity!
                                      (build-portal {
-                                                    :color (?. enemy-portal-tiles tile)
+                                                    :color (?. $config.enemy-portal-tiles tile)
                                                     :dx 0 :x (* x 8) :y (* y 8) :hp 10
                                                     :stationary? true
                                                     :cycle 97
@@ -620,7 +620,7 @@
    (fn prepare-game [self]
      (poke 0x03FF8 0)
      (tset self :entities [])
-     (tset self :bounds (?. real-level-bounds self.level))
+     (tset self :bounds (?. $config.level-bounds self.level))
      (tset self :state {:ticks 0 :screen-x (* self.bounds.x 8) :color-bar {} :screen-y (* self.bounds.y 8)})
      ($ui:clear-all!)
      (self:recalculate-color-bar!)

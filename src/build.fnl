@@ -597,16 +597,19 @@
       :grey 152})
 
 (var t 0)
-(var player-sprite 256)
-(var enemy-portal-colors {:red 32 :orange 40 :yellow 80 :green 88 :blue 128 :purple 136 :white 176})
-(var enemy-portal-tiles {32 :red 40 :orange 80 :yellow 88 :green 128 :blue 136 :purple 176 :white})
+(set $config.enemy-portal-colors
+     {:red 32 :orange 40 :yellow 80 :green 88 :blue 128 :purple 136 :white 176})
+(set $config.enemy-portal-tiles
+     {32 :red 40 :orange 80 :yellow 88 :green 128 :blue 136 :purple 176 :white})
 
-(var sprite-colors {:red 256 :orange 264 :blue 320 :green 296 :purple 328 :yellow 288})
+(set $config.player-sprite-colors
+     {:red 256 :orange 264 :blue 320 :green 296 :purple 328 :yellow 288})
 
-(var enemy-sprite-colors {:red 384 :orange 392 :yellow 416 :green 424 :blue 448 :purple 456})
+(set $config.enemy-sprite-colors
+     {:red 384 :orange 392 :yellow 416 :green 424 :blue 448 :purple 456})
 
 
-(var test-level-bounds
+(set $config.test-level-bounds
      {:yellow {:x 0 :y 0
                :w (* 30 5) :h 17}
       :red {:x 0 :y 0
@@ -621,7 +624,7 @@
               :w (* 30 3) :h 17}
       })
 
-(var real-level-bounds
+(set $config.level-bounds
      {:yellow {:x (* 30 5) :y (* 17 4)
                :w (* 30 2) :h (* 17 4)}
       :red {:x 0 :y (* 17 4)
@@ -776,8 +779,8 @@
                              (set $scene.scenes.game.level color)
                              ($scene:select! :game))))
            sprite-pick  (fn -sprite-pick [color] (if (?. completions color)
-                                                     enemy-portal-colors.white
-                                                     (?. enemy-portal-colors color)))
+                                                     $config.enemy-portal-colors.white
+                                                     (?. $config.enemy-portal-colors color)))
            map-details
            {
             :map {:x 210 :y 17 :trans 0}
@@ -981,10 +984,10 @@
 (fn build-player [base-state first-player]
   {:render (fn draw-player [{: character &as ent} {: dir : color : invuln &as state} _others]
              (let [sprite (if (> (% (or invuln 0) 33) 29)
-                              (?. sprite-colors (?. $config.next-color color))
+                              (?. $config.player-sprite-colors (?. $config.next-color color))
                               (and (< (% (or invuln 0) 33) 9) (not= 0 invuln))
-                              (?. sprite-colors (?. $config.prev-color color))
-                              (?. sprite-colors color))
+                              (?. $config.player-sprite-colors (?. $config.prev-color color))
+                              (?. $config.player-sprite-colors color))
                    flip (if (> (or dir 1) 0) 0 1)
                    shifted-x (- state.x state.screen-x)
                    shifted-y (- state.y state.screen-y)
@@ -1037,7 +1040,7 @@
 
 (fn build-enemy [{: color &as base-state}]
   (let [color (or color :red)
-        sprite (?. enemy-sprite-colors color)
+        sprite (?. $config.enemy-sprite-colors color)
         cycle (+ 10 (* 50 (math.random)))]
     {:render draw-entity
      :react enemy-react
@@ -1106,7 +1109,7 @@
 (fn build-portal [{: color : hp : stationary? &as base-state}]
   (let [color (or color :red)
         hp    (or hp 10)
-        sprite (?. enemy-portal-colors color)]
+        sprite (?. $config.enemy-portal-colors color)]
     {:render (fn [self {: x : y : screen-x : screen-y : hp : max-hp &as state} {&as game}]
                (let [x (- x screen-x)
                      y (- y screen-y)]
@@ -1126,7 +1129,7 @@
 
 (fn build-home-portal [{: color : hp &as base-state}]
   (let [color (or color :white)
-        sprite (?. enemy-portal-colors color)]
+        sprite (?. $config.enemy-portal-colors color)]
     {:render draw-entity
      :react (fn [{: color &as self}
                  {: hp : timer-ticks : cycle : x : y : dx : dy :  ticks : color-bar &as state}
@@ -1334,10 +1337,10 @@
                                                     :dx -0.5 :x (* x 8) :y (* y 8) :hp 10}))
                                     (mset x y 0)
                                     0)
-                                (?. enemy-portal-tiles tile)
+                                (?. $config.enemy-portal-tiles tile)
                                 (do (self:add-entity!
                                      (build-portal {
-                                                    :color (?. enemy-portal-tiles tile)
+                                                    :color (?. $config.enemy-portal-tiles tile)
                                                     :dx 0 :x (* x 8) :y (* y 8) :hp 10
                                                     :stationary? true
                                                     :cycle 97
@@ -1407,7 +1410,7 @@
    (fn prepare-game [self]
      (poke 0x03FF8 0)
      (tset self :entities [])
-     (tset self :bounds (?. real-level-bounds self.level))
+     (tset self :bounds (?. $config.level-bounds self.level))
      (tset self :state {:ticks 0 :screen-x (* self.bounds.x 8) :color-bar {} :screen-y (* self.bounds.y 8)})
      ($ui:clear-all!)
      (self:recalculate-color-bar!)

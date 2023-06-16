@@ -24,16 +24,19 @@
       :grey 152})
 
 (var t 0)
-(var player-sprite 256)
-(var enemy-portal-colors {:red 32 :orange 40 :yellow 80 :green 88 :blue 128 :purple 136 :white 176})
-(var enemy-portal-tiles {32 :red 40 :orange 80 :yellow 88 :green 128 :blue 136 :purple 176 :white})
+(set $config.enemy-portal-colors
+     {:red 32 :orange 40 :yellow 80 :green 88 :blue 128 :purple 136 :white 176})
+(set $config.enemy-portal-tiles
+     {32 :red 40 :orange 80 :yellow 88 :green 128 :blue 136 :purple 176 :white})
 
-(var sprite-colors {:red 256 :orange 264 :blue 320 :green 296 :purple 328 :yellow 288})
+(set $config.player-sprite-colors
+     {:red 256 :orange 264 :blue 320 :green 296 :purple 328 :yellow 288})
 
-(var enemy-sprite-colors {:red 384 :orange 392 :yellow 416 :green 424 :blue 448 :purple 456})
+(set $config.enemy-sprite-colors
+     {:red 384 :orange 392 :yellow 416 :green 424 :blue 448 :purple 456})
 
 
-(var test-level-bounds
+(set $config.test-level-bounds
      {:yellow {:x 0 :y 0
                :w (* 30 5) :h 17}
       :red {:x 0 :y 0
@@ -48,7 +51,7 @@
               :w (* 30 3) :h 17}
       })
 
-(var real-level-bounds
+(set $config.level-bounds
      {:yellow {:x (* 30 5) :y (* 17 4)
                :w (* 30 2) :h (* 17 4)}
       :red {:x 0 :y (* 17 4)
