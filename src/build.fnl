@@ -596,7 +596,6 @@
       :blue 96   :purple 104
       :grey 152})
 
-(var t 0)
 (set $config.enemy-portal-colors
      {:red 32 :orange 40 :yellow 80 :green 88 :blue 128 :purple 136 :white 176})
 (set $config.enemy-portal-tiles
@@ -655,10 +654,6 @@
      (draw-sprite! {:sprite 80 :x 36 :y (+ 25 (* 5 (math.sin (% (/ ticks 60) 60)))) :w 12 :h 4 :trans 0})
      (draw-sprite! {:sprite 161 :x 60 :y 48 :w 10 :h 3 :trans 0})
      (draw-sprite! {:sprite 460 :x 150 :y 48 :w 4 :h 4 :trans 0})
-     ;; (print "Disastrous Flying" 22 22 15 false 2)
-     ;; (print "Critters" 68 52 15 false 2)
-     ;; (print "Disastrous Flying" 23 23 13 false 2)
-     ;; (print "Critters" 69 53 13 false 2)
      )
    :prepare
    (fn []
@@ -834,7 +829,6 @@
     (draw-sprite! (merge (merge character state) {:x shifted-x
                                                   :y shifted-y}))))
 
-;; TODO: Start figuring out tile coloration
 (fn tile-color [tile]
   (let [col (% tile 16)
         row (// tile 16)
@@ -1283,11 +1277,10 @@
 (defscene $scene :game
   {:state {}
    :tick
-   (fn [{: bounds &as self} {: ticks : color-bar : screen-x : screen-y &as screen-state}]
-     ;; (if (btnp 7) ($scene:select! :pause))
+   (fn [{: bounds &as self}
+        {: ticks : color-bar : screen-x : screen-y &as screen-state}]
      (spawn-players! self true)
      (spawn-home-portal! self true)
-     ;; (draw-sky! screen-state)
      (let [player-ent (->> (filterv #(= $.firstp true) self.entities) first)
            player-offset-x (- player-ent.state.x screen-x)
            diffx (- (clamp player-offset-x 80 160) player-offset-x)
@@ -1316,10 +1309,6 @@
            (self:recalculate-color-bar!))
        (if (empty? self.entities)
            ($scene:select! :title))
-       ;; (icollect [_ v (ipairs self.entities)]
-       ;;   (if (and (= :enemy v.tag) (> screen-state.ticks 60))
-       ;;       (v:take-damage! {})))
-       ;; (print (.. "Count " (count self.entities)) 20 20 13 )
        (cls 8) ;; Allow pretty sky
        {:ticks (+ screen-state.ticks 1) :screen-x new-screen-x : color-bar :screen-y new-screen-y}))
    :draw

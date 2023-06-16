@@ -14,10 +14,6 @@
      (draw-sprite! {:sprite 80 :x 36 :y (+ 25 (* 5 (math.sin (% (/ ticks 60) 60)))) :w 12 :h 4 :trans 0})
      (draw-sprite! {:sprite 161 :x 60 :y 48 :w 10 :h 3 :trans 0})
      (draw-sprite! {:sprite 460 :x 150 :y 48 :w 4 :h 4 :trans 0})
-     ;; (print "Disastrous Flying" 22 22 15 false 2)
-     ;; (print "Critters" 68 52 15 false 2)
-     ;; (print "Disastrous Flying" 23 23 13 false 2)
-     ;; (print "Critters" 69 53 13 false 2)
      )
    :prepare
    (fn []

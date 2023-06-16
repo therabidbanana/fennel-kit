@@ -23,7 +23,6 @@
       :blue 96   :purple 104
       :grey 152})
 
-(var t 0)
 (set $config.enemy-portal-colors
      {:red 32 :orange 40 :yellow 80 :green 88 :blue 128 :purple 136 :white 176})
 (set $config.enemy-portal-tiles
