@@ -860,6 +860,8 @@
         (- tile dist)
         tile)))
 
+;; [TQ-Bundler: game.entities.player]
+
 (fn bullet-react [{: color &as bullet} {: x : y : screen-x : screen-y &as state} {: entities &as game}]
   (let [collision   (bullet:collision-box)
         intersected (-?>> (filterv #(= :enemy $.tag) entities)
@@ -969,12 +971,6 @@
         :die
         (merge state {: x : y : dx : dy : color : dir :invuln new-invuln : hp}))))
 
-(fn completion-rate [color current]
-  (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) $config.color-cycle))
-                     (or current.grey 0))
-        all-tiles (max all-tiles 1) ;; Hack around possible div/0
-        chosen    (or (?. current color) 0)]
-    (// (* (/ chosen all-tiles) 100) 1)))
 
 (fn build-player [base-state first-player]
   {:render (fn draw-player [{: character &as ent} {: dir : color : invuln &as state} _others]
@@ -1002,6 +998,11 @@
                                   {:t 115 :index 3} {:t 130 :index 1}]}
     :trans 0
     :w 2 :h 2}})
+
+
+;; [/TQ-Bundler: game.entities.player]
+
+;; [TQ-Bundler: game.entities.enemy]
 
 (fn enemy-react [{: color &as self}
                  {: hp : x : y : dx : dy : ticks : cycle &as state}
@@ -1048,6 +1049,11 @@
                      (tset self.state :hp (- (or self.state.hp 1) 1)))
      :character
      {:sprite sprite :trans 0 :w 2 :h 2}}))
+
+
+;; [/TQ-Bundler: game.entities.enemy]
+
+;; [TQ-Bundler: game.entities.portal]
 
 (fn player-nearby? [{: x : y &as state} entities]
   (let [nearby-players
@@ -1121,6 +1127,17 @@
                      (tset self.state :hp (- (or self.state.hp 1) 1)))
      :character
      {:sprite sprite :trans 0 :w 1 :h 1 :scale 2}}))
+
+
+;; [/TQ-Bundler: game.entities.portal]
+
+
+(fn completion-rate [color current]
+  (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) $config.color-cycle))
+                     (or current.grey 0))
+        all-tiles (max all-tiles 1) ;; Hack around possible div/0
+        chosen    (or (?. current color) 0)]
+    (// (* (/ chosen all-tiles) 100) 1)))
 
 (fn build-home-portal [{: color : hp &as base-state}]
   (let [color (or color :white)
