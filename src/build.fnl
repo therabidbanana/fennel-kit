@@ -539,6 +539,7 @@
 ;; [/TQ-Bundler: kit.scene.core]
 
 
+;; Collision helpers
 (fn inside? [{: x : y &as box} {:x x1 :y y1 &as point}]
   (and (>= x1 x) (<= x1 (+ x box.w))
        (>= y1 y) (<= y1 (+ y box.h))))
