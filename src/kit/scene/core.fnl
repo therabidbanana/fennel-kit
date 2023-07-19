@@ -23,12 +23,12 @@
     (mapv #($:render (merge (or $.state {}) scene-state) self) entities)))
 
 (global $scene
-        {:tick! #(let [scene-tick    (. (or $.active {:tick #:noop}) :tick)
-                       active-screen (react-entities! $.active $.active.state)
-                       new-state     (scene-tick $.active $.active.state)]
-                   (tset $.active :state new-state)
-                   (ui->react!)
-                   (ui->display!))
+        {:tick! (fn run-tick [$]
+                  (let [active-screen (react-entities! $.active $.active.state)
+                        new-state     (: $.active :tick $.active.state)]
+                    (tset $.active :state new-state)
+                    (ui->react!)
+                    (ui->display!)))
          :draw! #(let [scene-draw (. (or $.active {:draw #:noop}) :draw)]
                    (scene-draw $.active $.active.state)
                    (draw-entities! $.active $.active.state))
