@@ -127,3 +127,45 @@
   (each [v (string.gmatch (string.gsub str "\n" " _NEWLINE_ ") "[^ \t]+")]
     (^in acc v))
   acc)
+
+(fn inspect-serialize [val name skipnewlines depth]
+  (let [skipnewlines (or skipnewlines false)
+        depth (or depth 0)]
+    (var tmp (string.rep " " depth))
+    (when name (set tmp (.. tmp name " = ")))
+    (if (= (type val) :table)
+        (do
+          (set tmp
+               (.. tmp "{"
+                   (or (and (not skipnewlines)
+                            "\n")
+                       "")))
+          (each [k v (pairs val)]
+            (set tmp
+                 (.. tmp
+                     (inspect-serialize v k
+                                      skipnewlines
+                                      (+ depth 1))
+                     ","
+                     (or (and (not skipnewlines)
+                              "\n")
+                         ""))))
+          (set tmp
+               (.. tmp (string.rep " " depth) "}")))
+        (= (type val) :number)
+        (set tmp (.. tmp (tostring val)))
+        (= (type val) :string)
+        (set tmp (.. tmp (string.format "%q" val)))
+        (= (type val) :boolean)
+        (set tmp
+             (.. tmp (or (and val :true) :false)))
+        (set tmp
+             (.. tmp
+                 "\"[datatype:" (type val) "]\"")))
+    tmp))
+
+(macro inspect [val name]
+  (let [inspected (or name (tostring val))]
+    `(let [result# ,val]
+       (trace (inspect-serialize result# ,inspected))
+       result#)))

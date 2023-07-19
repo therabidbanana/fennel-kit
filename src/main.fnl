@@ -388,10 +388,13 @@
   ($scene:select! :title)
   )
 
-(fn _G.TIC []
-  ($scene:tick!)
 
-  )
+(fn _G.TIC []
+  (let [(ok? err) (pcall (. $scene :tick!) $scene)]
+    (when (not ok?)
+      (inspect $scene.active)
+      (inspect err "Error")
+      (error "Tick failed!"))))
 
 (fn _G.OVR []
   ($scene:draw!) ;; here to avoid bdr
