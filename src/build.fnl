@@ -129,6 +129,57 @@
      ;; Else, append to last
      (do (into (last acc) val) acc))))
 
+(fn inspect-serialize [val name skipnewlines depth]
+  (let [skipnewlines (or skipnewlines false)
+        depth (or depth 0)]
+    (var tmp (string.rep " " depth))
+    (when name (set tmp (.. tmp name " = ")))
+    (if (= (type val) :table)
+        (do
+          (set tmp
+               (.. tmp "{"
+                   (or (and (not skipnewlines)
+                            "\n")
+                       "")))
+          (each [k v (pairs val)]
+            (set tmp
+                 (.. tmp
+                     (inspect-serialize v k
+                                      skipnewlines
+                                      (+ depth 1))
+                     ","
+                     (or (and (not skipnewlines)
+                              "\n")
+                         ""))))
+          (set tmp
+               (.. tmp (string.rep " " depth) "}")))
+        (= (type val) :number)
+        (set tmp (.. tmp (tostring val)))
+        (= (type val) :string)
+        (set tmp (.. tmp (string.format "%q" val)))
+        (= (type val) :boolean)
+        (set tmp
+             (.. tmp (or (and val :true) :false)))
+        (set tmp
+             (.. tmp
+                 "\"[datatype:" (type val) "]\"")))
+    tmp))
+
+(macro inspect [val name]
+  (let [inspected (or name (tostring val))]
+    `(let [result# ,val]
+       (trace (inspect-serialize result# ,inspected))
+       result#)))
+
+
+;; [/TQ-Bundler: kit.lib]
+
+;; [TQ-Bundler: kit.logic]
+
+;; Game logic
+
+;;; ------ String helpers
+
 (fn chars [str]
   (local acc [])
   (for [i 1 (count str)]
@@ -141,8 +192,38 @@
     (^in acc v))
   acc)
 
+(fn capitalize-word [str]
+  (str:gsub "^%l" string.upper))
 
-;; [/TQ-Bundler: kit.lib]
+;;; ------ Collision helpers
+
+(fn inside? [{: x : y &as box} {:x x1 :y y1 &as point}]
+  (and (>= x1 x) (<= x1 (+ x box.w))
+       (>= y1 y) (<= y1 (+ y box.h))))
+
+(fn touches? [{&as ent1} {&as ent2}]
+  (and
+   (< (+ ent1.x 0) (+ ent2.x ent2.w))
+   (> (+ ent1.x ent1.w) (+ ent2.x 0))
+   (< (+ ent1.y 0) (+ ent2.y ent2.h))
+   (> (+ ent1.y ent1.h) (+ ent2.y 0))))
+
+(fn collision-sides [{&as ent1} {&as ent2}]
+  {:top (and (> ent1.y ent2.y)
+             (< (+ ent1.y 0) (+ ent2.y ent2.h))
+             (> (+ ent1.y ent1.h) (+ ent2.y 0)))
+   :bottom (and (< ent1.y ent2.y)
+                (< (+ ent1.y 0) (+ ent2.y ent2.h))
+                (> (+ ent1.y ent1.h) (+ ent2.y 0)))
+   :right (and (< ent1.x ent2.x)
+               (< (+ ent1.x 0) (+ ent2.x ent2.w))
+               (> (+ ent1.x ent1.w) (+ ent2.x 0)))
+   :left (and (> ent1.x ent2.x)
+              (< (+ ent1.x 0) (+ ent2.x ent2.w))
+              (> (+ ent1.x ent1.w) (+ ent2.x 0)))})
+
+
+;; [/TQ-Bundler: kit.logic]
 
 ;; [TQ-Bundler: kit.ui.core]
 
@@ -503,20 +584,28 @@
         entities (or self.entities [])]
     (mapv #($:render (merge (or $.state {}) scene-state) self) entities)))
 
+(fn draw-entity [{ : character &as ent} state {: bounds &as game}]
+  (let [shifted-x (- state.x (or state.screen-x 0))
+        shifted-y (- state.y (or state.screen-y 0))]
+    (draw-sprite! (merge (merge character state) {:x shifted-x
+                                                  :y shifted-y}))))
+
 (global $scene
-        {:tick! #(let [scene-tick    (. (or $.active {:tick #:noop}) :tick)
-                       active-screen (react-entities! $.active $.active.state)
-                       new-state     (scene-tick $.active $.active.state)]
-                   (tset $.active :state new-state)
-                   (ui->react!)
-                   (ui->display!))
-         :draw! #(let [scene-draw (. (or $.active {:draw #:noop}) :draw)]
-                   (scene-draw $.active $.active.state)
-                   (draw-entities! $.active $.active.state))
-         :overdraw! #(let [scene-draw (. (or $.active {:overdraw #:noop}) :overdraw)]
-                       (if scene-draw
-                           (scene-draw $.active $.active.state))
-                       (ui->display!))
+        {:tick! (fn tick-scene [$]
+                  (let [active-screen (react-entities! $.active $.active.state)
+                        new-state     (: $.active :tick $.active.state)]
+                    (tset $.active :state new-state)
+                    (ui->react!)
+                    (ui->display!)))
+         :draw! (fn draw-scene [$]
+                  (let [scene-draw (. (or $.active {:draw #:noop}) :draw)]
+                    (scene-draw $.active $.active.state)
+                    (draw-entities! $.active $.active.state)))
+         :overdraw! (fn overdraw-scene [$]
+                      (let [scene-draw (. (or $.active {:overdraw #:noop}) :overdraw)]
+                        (if scene-draw
+                            (scene-draw $.active $.active.state))
+                        (ui->display!)))
          :active nil
          :scenes {}
          ;; Swap + prepare
@@ -530,7 +619,10 @@
                                    (tset self.scenes name scene)))})
 
 (macro defscene [scene name fns]
-  `(let [scene-comp# (merge {:scene ,name} ,fns)]
+  `(let [scene-comp# (merge {:scene ,name
+                             :entities []
+                             :add-entity! (fn [self# ent#] (into self#.entities [ent#]))
+                             } ,fns)]
      (tset (. ,scene :scenes) ,name scene-comp#)
      (: ,scene :add! scene-comp#)
      scene-comp#))
@@ -539,36 +631,8 @@
 ;; [/TQ-Bundler: kit.scene.core]
 
 
-;; Collision helpers
-(fn inside? [{: x : y &as box} {:x x1 :y y1 &as point}]
-  (and (>= x1 x) (<= x1 (+ x box.w))
-       (>= y1 y) (<= y1 (+ y box.h))))
-
-(fn touches? [{&as ent1} {&as ent2}]
-  (and
-   (< (+ ent1.x 0) (+ ent2.x ent2.w))
-   (> (+ ent1.x ent1.w) (+ ent2.x 0))
-   (< (+ ent1.y 0) (+ ent2.y ent2.h))
-   (> (+ ent1.y ent1.h) (+ ent2.y 0))))
-
-(fn collision-sides [{&as ent1} {&as ent2}]
-  {:top (and (> ent1.y ent2.y)
-             (< (+ ent1.y 0) (+ ent2.y ent2.h))
-             (> (+ ent1.y ent1.h) (+ ent2.y 0)))
-   :bottom (and (< ent1.y ent2.y)
-                (< (+ ent1.y 0) (+ ent2.y ent2.h))
-                (> (+ ent1.y ent1.h) (+ ent2.y 0)))
-   :right (and (< ent1.x ent2.x)
-                (< (+ ent1.x 0) (+ ent2.x ent2.w))
-                (> (+ ent1.x ent1.w) (+ ent2.x 0)))
-   :left (and (> ent1.x ent2.x)
-              (< (+ ent1.x 0) (+ ent2.x ent2.w))
-              (> (+ ent1.x ent1.w) (+ ent2.x 0)))})
-
 
 ;; -------
-
-;; [TQ-Bundler: game.scenes]
 
 ;; [TQ-Bundler: game.config]
 
@@ -641,6 +705,17 @@
 
 
 ;; [/TQ-Bundler: game.config]
+
+
+;; Can't reference $config outside here
+(fn completion-rate [color current]
+  (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) $config.color-cycle))
+                     (or current.grey 0))
+        all-tiles (max all-tiles 1) ;; Hack around possible div/0
+        chosen    (or (?. current color) 0)]
+    (// (* (/ chosen all-tiles) 100) 1)))
+
+;; [TQ-Bundler: game.scenes]
 
 
 (defscene $scene :title
@@ -824,11 +899,6 @@
 ;; [/TQ-Bundler: game.scenes]
 
 
-(fn draw-entity [{ : character &as ent} state {: bounds &as game}]
-  (let [shifted-x (- state.x (or state.screen-x 0))
-        shifted-y (- state.y (or state.screen-y 0))]
-    (draw-sprite! (merge (merge character state) {:x shifted-x
-                                                  :y shifted-y}))))
 
 (fn tile-color [tile]
   (let [col (% tile 16)
@@ -1132,13 +1202,6 @@
 ;; [/TQ-Bundler: game.entities.portal]
 
 
-(fn completion-rate [color current]
-  (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) $config.color-cycle))
-                     (or current.grey 0))
-        all-tiles (max all-tiles 1) ;; Hack around possible div/0
-        chosen    (or (?. current color) 0)]
-    (// (* (/ chosen all-tiles) 100) 1)))
-
 (fn build-home-portal [{: color : hp &as base-state}]
   (let [color (or color :white)
         sprite (?. $config.enemy-portal-colors color)]
@@ -1195,9 +1258,6 @@
     (draw-box! {:x (sum 3 red-portion orange-portion yellow-portion green-portion blue-portion purple-portion) :y 3 :w grey-portion :h 2 :bg-color 14})
     (draw-box! {:x 2 :y 2 :w 236 :h 4 :border-color 12})
     ))
-
-(fn capitalize-word [str]
-  (str:gsub "^%l" string.upper))
 
 (fn draw-hud [{: level : entities &as game} { : screen-x : screen-y : color-bar : ticks}]
   (let [portals (filterv #(?. $ :portal) entities)
@@ -1441,10 +1501,13 @@
   ($scene:select! :title)
   )
 
-(fn _G.TIC []
-  ($scene:tick!)
 
-  )
+(fn _G.TIC []
+  (let [(ok? err) (pcall (. $scene :tick!) $scene)]
+    (when (not ok?)
+      (inspect $scene.active)
+      (inspect err "Error")
+      (error "Tick failed!"))))
 
 (fn _G.OVR []
   ($scene:draw!) ;; here to avoid bdr

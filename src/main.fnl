@@ -5,45 +5,25 @@
 
 ;; The base utils
 (include "kit.lib")
+(include "kit.logic")
 (include "kit.ui.core")
 (include "kit.scene.core")
-
-;; Collision helpers
-(fn inside? [{: x : y &as box} {:x x1 :y y1 &as point}]
-  (and (>= x1 x) (<= x1 (+ x box.w))
-       (>= y1 y) (<= y1 (+ y box.h))))
-
-(fn touches? [{&as ent1} {&as ent2}]
-  (and
-   (< (+ ent1.x 0) (+ ent2.x ent2.w))
-   (> (+ ent1.x ent1.w) (+ ent2.x 0))
-   (< (+ ent1.y 0) (+ ent2.y ent2.h))
-   (> (+ ent1.y ent1.h) (+ ent2.y 0))))
-
-(fn collision-sides [{&as ent1} {&as ent2}]
-  {:top (and (> ent1.y ent2.y)
-             (< (+ ent1.y 0) (+ ent2.y ent2.h))
-             (> (+ ent1.y ent1.h) (+ ent2.y 0)))
-   :bottom (and (< ent1.y ent2.y)
-                (< (+ ent1.y 0) (+ ent2.y ent2.h))
-                (> (+ ent1.y ent1.h) (+ ent2.y 0)))
-   :right (and (< ent1.x ent2.x)
-                (< (+ ent1.x 0) (+ ent2.x ent2.w))
-                (> (+ ent1.x ent1.w) (+ ent2.x 0)))
-   :left (and (> ent1.x ent2.x)
-              (< (+ ent1.x 0) (+ ent2.x ent2.w))
-              (> (+ ent1.x ent1.w) (+ ent2.x 0)))})
 
 
 ;; -------
 
+(include "game.config")
+
+;; Can't reference $config outside here
+(fn completion-rate [color current]
+  (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) $config.color-cycle))
+                     (or current.grey 0))
+        all-tiles (max all-tiles 1) ;; Hack around possible div/0
+        chosen    (or (?. current color) 0)]
+    (// (* (/ chosen all-tiles) 100) 1)))
+
 (include "game.scenes")
 
-(fn draw-entity [{ : character &as ent} state {: bounds &as game}]
-  (let [shifted-x (- state.x (or state.screen-x 0))
-        shifted-y (- state.y (or state.screen-y 0))]
-    (draw-sprite! (merge (merge character state) {:x shifted-x
-                                                  :y shifted-y}))))
 
 (fn tile-color [tile]
   (let [col (% tile 16)
@@ -78,13 +58,6 @@
 (include "game.entities.player")
 (include "game.entities.enemy")
 (include "game.entities.portal")
-
-(fn completion-rate [color current]
-  (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) $config.color-cycle))
-                     (or current.grey 0))
-        all-tiles (max all-tiles 1) ;; Hack around possible div/0
-        chosen    (or (?. current color) 0)]
-    (// (* (/ chosen all-tiles) 100) 1)))
 
 (fn build-home-portal [{: color : hp &as base-state}]
   (let [color (or color :white)
@@ -142,9 +115,6 @@
     (draw-box! {:x (sum 3 red-portion orange-portion yellow-portion green-portion blue-portion purple-portion) :y 3 :w grey-portion :h 2 :bg-color 14})
     (draw-box! {:x 2 :y 2 :w 236 :h 4 :border-color 12})
     ))
-
-(fn capitalize-word [str]
-  (str:gsub "^%l" string.upper))
 
 (fn draw-hud [{: level : entities &as game} { : screen-x : screen-y : color-bar : ticks}]
   (let [portals (filterv #(?. $ :portal) entities)

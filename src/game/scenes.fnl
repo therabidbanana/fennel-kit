@@ -1,6 +1,5 @@
 (include "kit.lib")
 (include "kit.scene.core")
-(include "game.config")
 
 (defscene $scene :title
   {:state {}

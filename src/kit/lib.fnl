@@ -116,18 +116,6 @@
      ;; Else, append to last
      (do (into (last acc) val) acc))))
 
-(fn chars [str]
-  (local acc [])
-  (for [i 1 (count str)]
-    (^in acc (string.sub str i i)))
-  acc)
-
-(fn words [str]
-  (local acc [])
-  (each [v (string.gmatch (string.gsub str "\n" " _NEWLINE_ ") "[^ \t]+")]
-    (^in acc v))
-  acc)
-
 (fn inspect-serialize [val name skipnewlines depth]
   (let [skipnewlines (or skipnewlines false)
         depth (or depth 0)]

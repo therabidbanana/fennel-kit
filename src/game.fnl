@@ -1362,8 +1362,6 @@
        (if player2-ent (draw-stats player2-ent false))
        (draw-hud self screen-state)
        ))
-   :entities []
-   :add-entity! (fn [self ent] (into self.entities [ent]))
    :fetch-map-tile (fn fetch-map-tile [{: state : bounds &as self} {: x : y : color}]
                      (let [tile-x (// (+ x 0) 8)
                            tile-y (// (+ y 0) 8)
