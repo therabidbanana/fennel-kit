@@ -1,4 +1,4 @@
-(local $config {})
+(set $config.trace-timing false)
 
 (set $config.portraits
      {:princess {:position :left :sprite 201 :w 4 :h 4

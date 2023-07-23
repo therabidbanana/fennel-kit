@@ -43,3 +43,4 @@
    :left (and (> ent1.x ent2.x)
               (< (+ ent1.x 0) (+ ent2.x ent2.w))
               (> (+ ent1.x ent1.w) (+ ent2.x 0)))})
+

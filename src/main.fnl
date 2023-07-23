@@ -12,9 +12,6 @@
 
 ;; -------
 
-(include "game.config")
-
-;; Can't reference $config outside here
 (fn completion-rate [color current]
   (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) $config.color-cycle))
                      (or current.grey 0))
@@ -22,6 +19,7 @@
         chosen    (or (?. current color) 0)]
     (// (* (/ chosen all-tiles) 100) 1)))
 
+(include "game.config")
 (include "game.scenes")
 
 
@@ -247,36 +245,39 @@
        (cls 8) ;; Allow pretty sky
        {:ticks (+ screen-state.ticks 1) :screen-x new-screen-x : color-bar :screen-y new-screen-y}))
    :draw
-   (fn [{: bounds &as self} {: screen-x : screen-y : color-bar &as screen-state}]
+   (fn [{: bounds &as self} {: ticks : screen-x : screen-y : color-bar &as screen-state}]
      (draw-sky! screen-state)
      (draw-map! {:x bounds.x :w bounds.w
                  :y bounds.y :h bounds.h
                  :sx (- 0 (- screen-x (* bounds.x 8))) :sy (- 0 (- screen-y (* bounds.y 8)))
                  :trans 0
-                 :on-draw (fn [tile x y]
-                            (if (between? tile 242 247)
-                                (do (self:add-entity!
-                                     (build-portal {
-                                                    :color (?. $config.color-cycle (- tile 241))
-                                                    :dx -0.5 :x (* x 8) :y (* y 8) :hp 10}))
-                                    (mset x y 0)
-                                    0)
-                                (?. $config.enemy-portal-tiles tile)
-                                (do (self:add-entity!
-                                     (build-portal {
-                                                    :color (?. $config.enemy-portal-tiles tile)
-                                                    :dx 0 :x (* x 8) :y (* y 8) :hp 10
-                                                    :stationary? true
-                                                    :cycle 97
-                                                    }))
-                                    (mset x y 0)
-                                    0)
-                                (= tile 240)
-                                (do (set self.state.home-x (* x 8))
-                                    (set self.state.home-y (* y 8))
-                                    tile)
-                                tile)
-                            )
+                 :ticks ticks
+                 :on-first-draw
+                 (fn map-first-draw [tile x y]
+                   (if
+                    (between? tile 242 247)
+                    (do (self:add-entity!
+                         (build-portal {
+                                        :color (?. $config.color-cycle (- tile 241))
+                                        :dx -0.5 :x (* x 8) :y (* y 8) :hp 10}))
+                        (mset x y 0)
+                        0)
+                    (?. $config.enemy-portal-tiles tile)
+                    (do (self:add-entity!
+                         (build-portal {
+                                        :color (?. $config.enemy-portal-tiles tile)
+                                        :dx 0 :x (* x 8) :y (* y 8) :hp 10
+                                        :stationary? true
+                                        :cycle 97
+                                        }))
+                        (mset x y 0)
+                        0)
+                    (= tile 240)
+                    (do (set self.state.home-x (* x 8))
+                        (set self.state.home-y (* y 8))
+                        tile)
+                    tile)
+                   )
                  }))
    :overdraw
    (fn [self screen-state]
@@ -349,7 +350,6 @@
     (poke (+ (+ (* CHANGE_COL 3) 0) PALETTE_ADDR) color)
     (poke (+ (+ (* CHANGE_COL 3) 1) PALETTE_ADDR) color)
     (poke (+ (+ (* CHANGE_COL 3) 2) PALETTE_ADDR) color)
-
     ))
 
 (fn _G.BOOT []
@@ -367,4 +367,9 @@
 (fn _G.OVR []
   ($scene:draw!) ;; here to avoid bdr
   ($scene:overdraw!)
+  (when $config.trace-timing
+    (let [timings {}
+         test (collect [k v (pairs $scene.timings)]
+                (tset timings k (/ (math.floor (* 1000 (/ (sum v) (count v)))) 1000)))]
+     (print (inspect-serialize timings) 120 100)))
   )

@@ -30,21 +30,37 @@
 
 (global $scene
         {:tick! (fn tick-scene [$]
-                  (let [active-screen (react-entities! $.active $.active.state)
-                        new-state     (: $.active :tick $.active.state)]
+                  (let [tick-start    (time)
+                        active-screen (react-entities! $.active $.active.state)
+                        entity-tick   (time)
+                        _ ($:timing :react-entities! tick-start entity-tick)
+                        new-state     (: $.active :tick $.active.state)
+                        scene-tick    (time)
+                        _ ($:timing :scene.tick entity-tick scene-tick)]
                     (tset $.active :state new-state)
                     (ui->react!)
-                    (ui->display!)))
+                    ($:timing :tick! tick-start (time))))
          :draw! (fn draw-scene [$]
-                  (let [scene-draw (. (or $.active {:draw #:noop}) :draw)]
-                    (scene-draw $.active $.active.state)
-                    (draw-entities! $.active $.active.state)))
+                  (let [draw-start (time)
+                        scene-draw (. (or $.active {:draw #:noop}) :draw)
+                        _ (scene-draw $.active $.active.state)
+                        scene-time (time)]
+                    ;; ($:timing :draw-scene draw-start scene-time)
+                    (draw-entities! $.active $.active.state)
+                    ;; ($:timing :draw-entities! scene-time (time))
+                    ($:timing :draw! draw-start (time)))
+                  )
          :overdraw! (fn overdraw-scene [$]
                       (let [scene-draw (. (or $.active {:overdraw #:noop}) :overdraw)]
                         (if scene-draw
                             (scene-draw $.active $.active.state))
                         (ui->display!)))
+         :timing (fn trace-times [self tag start end]
+                   (when $config.trace-timing
+                     (tset self.timings tag
+                           (take 10 (cons (- end start) (?. self.timings tag))))))
          :active nil
+         :timings {}
          :scenes {}
          ;; Swap + prepare
          :select! (fn [self name ...] (let [scene (?. self.scenes name)]

@@ -1,5 +1,7 @@
-;; Utility functions to make fennel more like CLJ
+;; Shared config, can be updated by game
+(global $config {:trace-timing false})
 
+;; Utility functions to make fennel more like CLJ
 (fn first [coll] (?. coll 1))
 (fn last [coll] (?. coll (length coll)))
 (fn nil? [x] (= x nil))

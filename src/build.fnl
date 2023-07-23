@@ -11,8 +11,10 @@
 ;; The base utils
 ;; [TQ-Bundler: kit.lib]
 
-;; Utility functions to make fennel more like CLJ
+;; Shared config, can be updated by game
+(global $config {:trace-timing false})
 
+;; Utility functions to make fennel more like CLJ
 (fn first [coll] (?. coll 1))
 (fn last [coll] (?. coll (length coll)))
 (fn nil? [x] (= x nil))
@@ -223,6 +225,7 @@
               (> (+ ent1.x ent1.w) (+ ent2.x 0)))})
 
 
+
 ;; [/TQ-Bundler: kit.logic]
 
 ;; [TQ-Bundler: kit.ui.core]
@@ -315,8 +318,13 @@
     (if box (draw-box! (merge {:x x :y y :w full-w :h full-h} box)))
     (spr sprite x y (or trans -1) scale (or flip 0) (or rotate 0) w h)))
 
-(fn draw-map! [{: w : h : x : y : sx : sy : trans : on-draw : scale}]
-  (map (or x 0) (or y 0) (or w 30) (or h 17) (or sx 0) (or sy 0) (or trans -1) (or scale 1) on-draw))
+(fn draw-map! [{: w : h : x : y : sx : sy : trans : on-draw : scale : ticks : on-first-draw}]
+  (let [draw-fn (if (and ticks (<= ticks 1))
+                    on-first-draw
+                    on-draw)]
+    (map (or x 0) (or y 0)
+         (or w 30) (or h 17)
+         (or sx 0) (or sy 0) (or trans -1) (or scale 1) draw-fn)))
 
 (fn draw-right-arrow! [{: x : y : ticks}]
   (let [wobble (if (> (% (or ticks 0) 70) 40)
@@ -592,21 +600,37 @@
 
 (global $scene
         {:tick! (fn tick-scene [$]
-                  (let [active-screen (react-entities! $.active $.active.state)
-                        new-state     (: $.active :tick $.active.state)]
+                  (let [tick-start    (time)
+                        active-screen (react-entities! $.active $.active.state)
+                        entity-tick   (time)
+                        _ ($:timing :react-entities! tick-start entity-tick)
+                        new-state     (: $.active :tick $.active.state)
+                        scene-tick    (time)
+                        _ ($:timing :scene.tick entity-tick scene-tick)]
                     (tset $.active :state new-state)
                     (ui->react!)
-                    (ui->display!)))
+                    ($:timing :tick! tick-start (time))))
          :draw! (fn draw-scene [$]
-                  (let [scene-draw (. (or $.active {:draw #:noop}) :draw)]
-                    (scene-draw $.active $.active.state)
-                    (draw-entities! $.active $.active.state)))
+                  (let [draw-start (time)
+                        scene-draw (. (or $.active {:draw #:noop}) :draw)
+                        _ (scene-draw $.active $.active.state)
+                        scene-time (time)]
+                    ;; ($:timing :draw-scene draw-start scene-time)
+                    (draw-entities! $.active $.active.state)
+                    ;; ($:timing :draw-entities! scene-time (time))
+                    ($:timing :draw! draw-start (time)))
+                  )
          :overdraw! (fn overdraw-scene [$]
                       (let [scene-draw (. (or $.active {:overdraw #:noop}) :overdraw)]
                         (if scene-draw
                             (scene-draw $.active $.active.state))
                         (ui->display!)))
+         :timing (fn trace-times [self tag start end]
+                   (when $config.trace-timing
+                     (tset self.timings tag
+                           (take 10 (cons (- end start) (?. self.timings tag))))))
          :active nil
+         :timings {}
          :scenes {}
          ;; Swap + prepare
          :select! (fn [self name ...] (let [scene (?. self.scenes name)]
@@ -634,9 +658,16 @@
 
 ;; -------
 
+(fn completion-rate [color current]
+  (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) $config.color-cycle))
+                     (or current.grey 0))
+        all-tiles (max all-tiles 1) ;; Hack around possible div/0
+        chosen    (or (?. current color) 0)]
+    (// (* (/ chosen all-tiles) 100) 1)))
+
 ;; [TQ-Bundler: game.config]
 
-(local $config {})
+(set $config.trace-timing false)
 
 (set $config.portraits
      {:princess {:position :left :sprite 201 :w 4 :h 4
@@ -705,15 +736,6 @@
 
 
 ;; [/TQ-Bundler: game.config]
-
-
-;; Can't reference $config outside here
-(fn completion-rate [color current]
-  (let [all-tiles (+ (sum (mapv #(or (?. current $) 0) $config.color-cycle))
-                     (or current.grey 0))
-        all-tiles (max all-tiles 1) ;; Hack around possible div/0
-        chosen    (or (?. current color) 0)]
-    (// (* (/ chosen all-tiles) 100) 1)))
 
 ;; [TQ-Bundler: game.scenes]
 
@@ -1390,36 +1412,39 @@
        (cls 8) ;; Allow pretty sky
        {:ticks (+ screen-state.ticks 1) :screen-x new-screen-x : color-bar :screen-y new-screen-y}))
    :draw
-   (fn [{: bounds &as self} {: screen-x : screen-y : color-bar &as screen-state}]
+   (fn [{: bounds &as self} {: ticks : screen-x : screen-y : color-bar &as screen-state}]
      (draw-sky! screen-state)
      (draw-map! {:x bounds.x :w bounds.w
                  :y bounds.y :h bounds.h
                  :sx (- 0 (- screen-x (* bounds.x 8))) :sy (- 0 (- screen-y (* bounds.y 8)))
                  :trans 0
-                 :on-draw (fn [tile x y]
-                            (if (between? tile 242 247)
-                                (do (self:add-entity!
-                                     (build-portal {
-                                                    :color (?. $config.color-cycle (- tile 241))
-                                                    :dx -0.5 :x (* x 8) :y (* y 8) :hp 10}))
-                                    (mset x y 0)
-                                    0)
-                                (?. $config.enemy-portal-tiles tile)
-                                (do (self:add-entity!
-                                     (build-portal {
-                                                    :color (?. $config.enemy-portal-tiles tile)
-                                                    :dx 0 :x (* x 8) :y (* y 8) :hp 10
-                                                    :stationary? true
-                                                    :cycle 97
-                                                    }))
-                                    (mset x y 0)
-                                    0)
-                                (= tile 240)
-                                (do (set self.state.home-x (* x 8))
-                                    (set self.state.home-y (* y 8))
-                                    tile)
-                                tile)
-                            )
+                 :ticks ticks
+                 :on-first-draw
+                 (fn map-first-draw [tile x y]
+                   (if
+                    (between? tile 242 247)
+                    (do (self:add-entity!
+                         (build-portal {
+                                        :color (?. $config.color-cycle (- tile 241))
+                                        :dx -0.5 :x (* x 8) :y (* y 8) :hp 10}))
+                        (mset x y 0)
+                        0)
+                    (?. $config.enemy-portal-tiles tile)
+                    (do (self:add-entity!
+                         (build-portal {
+                                        :color (?. $config.enemy-portal-tiles tile)
+                                        :dx 0 :x (* x 8) :y (* y 8) :hp 10
+                                        :stationary? true
+                                        :cycle 97
+                                        }))
+                        (mset x y 0)
+                        0)
+                    (= tile 240)
+                    (do (set self.state.home-x (* x 8))
+                        (set self.state.home-y (* y 8))
+                        tile)
+                    tile)
+                   )
                  }))
    :overdraw
    (fn [self screen-state]
@@ -1492,7 +1517,6 @@
     (poke (+ (+ (* CHANGE_COL 3) 0) PALETTE_ADDR) color)
     (poke (+ (+ (* CHANGE_COL 3) 1) PALETTE_ADDR) color)
     (poke (+ (+ (* CHANGE_COL 3) 2) PALETTE_ADDR) color)
-
     ))
 
 (fn _G.BOOT []
@@ -1510,4 +1534,9 @@
 (fn _G.OVR []
   ($scene:draw!) ;; here to avoid bdr
   ($scene:overdraw!)
+  (when $config.trace-timing
+    (let [timings {}
+         test (collect [k v (pairs $scene.timings)]
+                (tset timings k (/ (math.floor (* 1000 (/ (sum v) (count v)))) 1000)))]
+     (print (inspect-serialize timings) 120 100)))
   )

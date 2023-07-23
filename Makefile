@@ -13,7 +13,7 @@ build-dir:
 	mkdir -p build
 
 mac-raw: build
-	${tic} --cli  --fs=. --cmd "load src/game.fnl & load src/build.fnl code & export mac build/${project}-mac"
+	${tic} --cli --vsync=1 --fs=. --cmd "load src/game.fnl & load src/build.fnl code & export mac build/${project}-mac"
 
 mac-app: mac-raw
 	rm -rf build/${project}.app &> /dev/null
@@ -25,10 +25,10 @@ mac: mac-app
 	zip -vr build/${project}.app.zip build/${project}.app -x "*.DS_Store"
 
 win: build
-	${tic} --cli  --fs=. --cmd "load src/game.fnl & load src/build.fnl code & export win build/${project}-win"
+	${tic} --cli --vsync=1 --fs=. --cmd "load src/game.fnl & load src/build.fnl code & export win build/${project}-win"
 
 linux: build
-	${tic} --cli  --fs=. --cmd "load src/game.fnl & load src/build.fnl code & export linux build/${project}-linux"
+	${tic} --cli --vsync=1 --fs=. --cmd "load src/game.fnl & load src/build.fnl code & export linux build/${project}-linux"
 
 html: build
 	${tic} --cli  --fs=. --cmd "load src/game.fnl & load src/build.fnl code & export html build/${project}-html"

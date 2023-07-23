@@ -39,8 +39,13 @@
     (if box (draw-box! (merge {:x x :y y :w full-w :h full-h} box)))
     (spr sprite x y (or trans -1) scale (or flip 0) (or rotate 0) w h)))
 
-(fn draw-map! [{: w : h : x : y : sx : sy : trans : on-draw : scale}]
-  (map (or x 0) (or y 0) (or w 30) (or h 17) (or sx 0) (or sy 0) (or trans -1) (or scale 1) on-draw))
+(fn draw-map! [{: w : h : x : y : sx : sy : trans : on-draw : scale : ticks : on-first-draw}]
+  (let [draw-fn (if (and ticks (<= ticks 1))
+                    on-first-draw
+                    on-draw)]
+    (map (or x 0) (or y 0)
+         (or w 30) (or h 17)
+         (or sx 0) (or sy 0) (or trans -1) (or scale 1) draw-fn)))
 
 (fn draw-right-arrow! [{: x : y : ticks}]
   (let [wobble (if (> (% (or ticks 0) 70) 40)
