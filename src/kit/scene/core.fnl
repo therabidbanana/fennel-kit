@@ -8,12 +8,13 @@
   (if (not (ui->active?))
       (let [scene-state (or scene-state {})
             entities (or self.entities [])
-            reacted (mapv #(let [up ($:react (merge (or $.state {}) scene-state) self)]
-                             (if (= :die up)
-                                 nil
-                                 (table? up)
-                                 (doto $ (tset :state up))
-                                 $))
+            reacted (mapv (fn do-entity-react! [$]
+                            (let [up ($:react (merge (or $.state {}) scene-state) self)]
+                              (if (= :die up)
+                                  nil
+                                  (table? up)
+                                  (doto $ (tset :state up))
+                                  $)))
                           entities)]
         (tset self :entities reacted))))
 
