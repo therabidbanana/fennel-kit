@@ -1,6 +1,6 @@
-project = flying-critters
-appname = Flying Critters
-itchproj = therabidbanana/disastrous-flying-critters
+project = fennel-kit-dmo
+appname = Fennel Kit Demo
+itchproj = therabidbanana/fennel-kit-demo
 tic = /Applications/tic80.app/Contents/MacOS/tic80
 
 build: build-dir
